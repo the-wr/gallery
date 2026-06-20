@@ -110,7 +110,7 @@ within that page**, not destinations you navigate into.
 - **R-A1 Trip = album = one page.** The basic unit is a trip album (title, dates, cover, location(s), optional intro) presented as one scrollable page.
 - **R-A2 Sub-albums as sections.** A multi-location trip is organised into **sections** (e.g. one per city/location), each with its own heading, laid out in sequence on the same page. At least one level of sectioning is required; nested sub-sections are desirable.
 - **R-A3 Collapsible sections.** Each section can be **collapsed/expanded** to keep a long trip manageable; a section list / "jump to" affordance lets the viewer skip between sections without leaving the page (this replaces page-to-page sibling nav).
-- **R-A4 Breadcrumb / placement.** A breadcrumb locates the trip (World › Japan › *this trip*); since the trip is one page, in-trip movement is scroll + jump-to-section rather than drill in/out.
+- **R-A4 No breadcrumbs; single "up" link.** With a fixed 3-level depth (World → Country → Trip) and a one-page trip, no breadcrumb trail is needed — browser-back handles normal navigation. The only gap is **direct arrivals** (shared trip link, or a tile-per-trip world catalogue that jumps straight to a trip) with no in-site history; for them a single always-present **"up" affordance** (to the country / home) is enough. In-trip movement is scroll + jump-to-section, not drill in/out.
 - **R-A5 Inherited context.** A section inherits trip-level context (dates, region) but can override (its own dates, its own map).
 - **R-A6 Layer consistency.** The layer choice applies to the **whole page** at once (all sections) and persists as the viewer scrolls; switching layers re-renders in place without losing position where reasonable (R-L1).
 - **R-A7 Performance at length.** Because a full trip (≈300 photos on the inner layer) lives on one page, content must **lazy-load** as the viewer scrolls so the page stays fast (R-X1).
@@ -122,9 +122,9 @@ An album is a sequence of **content blocks**, not just a photo grid. Layout is a
 hero shots, smaller grouped rows, and interleaved text — rather than relying on a
 single automatic packing. Sensible defaults assist, but placement is hand-tunable.
 
-- **R-C1 Photos** — single full-width "hero" images and multi-image grouped rows, with captions. The owner controls which shots get emphasis (hero vs grouped).
-- **R-C2 Text blocks** — standalone prose between photos (intros, daily notes, context), plus per-photo captions.
-- **R-C3 Per-album map — frozen for viewers.** During upload the owner gets an **interactive** map (pan, zoom, place/adjust pins, draw routes). On save it is **flattened to a static image** that viewers see — no live mapping service, no interactivity, no runtime dependency. The owner re-edits and re-bakes when needed.
+- **R-C1 Photos** — single full-width "hero" images and multi-image grouped rows. The owner controls which shots get emphasis (hero vs grouped). **Captions are optional** — a photo may have none.
+- **R-C2 Text blocks** — standalone prose between photos (intros, daily notes, context). A text block can also be a **title/heading** at a chosen level (customizable font size / heading level), so sections and the trip can have headings, not just body prose. Plus optional per-photo captions.
+- **R-C3 Maps anywhere — frozen for viewers.** A map is a **block placeable anywhere in the album** (not only at the top), and **multiple maps are allowed** (e.g. an overview map up top, plus a local map within a section). During upload the owner gets an **interactive** map (pan, zoom, place/adjust pins, draw routes); on save each is **flattened to a static image** viewers see — no live mapping service, no interactivity, no runtime dependency. The owner re-edits and re-bakes when needed.
 - **R-C4 Route & heatmap** — the editable map can include the trip route (path between locations) and/or a shooting-density heatmap; these too are baked into the frozen static image.
 - **R-C5 Ordering** — blocks can be arranged in a deliberate order; photos default to chronological but the owner can curate.
 - **R-C6 One caption per photo** — a photo shows the **same** caption in every layer it appears in (no per-layer caption variants).
