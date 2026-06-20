@@ -129,6 +129,18 @@ single automatic packing. Sensible defaults assist, but placement is hand-tunabl
 - **R-C5 Ordering** — blocks can be arranged in a deliberate order; photos default to chronological but the owner can curate.
 - **R-C6 One caption per photo** — a photo shows the **same** caption in every layer it appears in (no per-layer caption variants).
 
+### 7.1 Lightbox / fullscreen
+
+Fullscreen is a focused **look-closer** tool, not a second narrative — the
+scrolling page remains the story. Prev/next is therefore **scoped to the photo
+group**, and group boundaries eject the viewer back into the page flow.
+
+- **R-C7 Group-scoped stepping.** Tapping a photo in a grouped row opens a fullscreen viewer that flips **only across that group's photos**. A hero/standalone photo is a "group of one." Text and maps are never part of the lightbox.
+- **R-C8 Boundaries eject into the narrative.** Flipping **past the last** photo of a group **closes the lightbox and scrolls the page to the next content block**; flipping **before the first** closes and scrolls to the **previous** block (symmetric). The "next/previous block" is the adjacent item in the album sequence, whatever its type (text, map, or another photo group). This keeps the page as the connective tissue between groups.
+- **R-C9 Zoom to inspect.** Within the viewer, pinch/scroll to zoom into a photo at full resolution for detail.
+- **R-C10 Caption when present.** A photo's caption is shown in the viewer if it has one (captions are optional, R-C1); nothing is shown when absent.
+- **R-C11 Return in place.** Dismissing (Esc / close / swipe-down) returns to the **exact prior scroll position**. Minimal chrome; no EXIF/metadata panel in v1.
+
 ## 8. World index (the front door)
 
 **One template, two levels.** The front door and the country screen are the
