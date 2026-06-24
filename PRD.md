@@ -80,7 +80,16 @@ Requirements:
 - **R-L4** The default layer shown on first load is configurable per album (default: Highlights).
 - **R-L5** The privacy cut between "public" and "private" layers is configurable; layers inside the cut require the share link (default: Faces is private).
 - **R-L6** Layer set (names, count, which is default, which is private) is **configurable per album** — not every trip needs all four. The four-layer default applies unless overridden.
-- **R-L7 Switcher control.** A **named segmented control**, **sticky** so it stays visible while scrolling the trip. Likely **icon-per-layer with the name shown only for the current** layer (to stay compact); may also show a **per-layer photo count**. Exact form to be settled in mockups (R-Q, §11).
+- **R-L7 Switcher control — two modes, scroll-driven.** A **named segmented control** with two presentations:
+  - **Large mode** — icon + label + per-layer photo count for each layer.
+  - **Small mode** — icons only (compact).
+
+  Behavior on the trip page:
+  - It **starts in large mode, pinned in-flow just below the trip title**.
+  - As the viewer **scrolls down** and that pinned position leaves the viewport, it **shrinks to small mode** and **floats as an always-visible overlay in a screen corner** ("hover" mode), so the layer control is reachable at any scroll depth.
+  - **Scrolling back to the top**, where the in-flow position is visible again, **transforms the floating small mode back into the large pinned mode** (it re-docks home).
+
+  Exact iconography, which corner, and the transition animation are mockup-phase details (§11).
 - **R-L8 Private layer in the switcher.** The **Faces** segment appears only once the family link has unlocked the session; to anonymous visitors the switcher shows public layers only, with no hint of a hidden one (privacy, §4).
 
 ### 5.1 Layer switcher behavior
@@ -229,7 +238,7 @@ manual override everywhere.
 2. **Pin placement on frozen maps:** pins are auto-placed from GPS, but on a non-zoomable world image, dense regions (e.g. several European countries) may crowd. Acceptable as-is, or do we need a minimum spacing / manual nudge step?
 3. **World catalogue granularity (R-I2):** tile-per-country vs tile-per-trip — **prototype both** in the mockup phase, then decide. May resolve as a **toggle** rather than a fixed choice: *group by country* ⇄ *all trips sorted by date*.
 4. **Per-layer count on trip tiles (R-I10):** how (or whether) to show `10 / 45 / 300` — bare numbers, labelled, total-only, or omitted. Decide visually in mockups.
-5. **Layer switcher form (R-L7):** icon-only vs icon+label, whether to show per-layer photo counts, and exact sticky placement — **prototype in mockups**.
+5. **Layer switcher visuals (R-L7):** two-mode behavior is decided; **prototype in mockups** the iconography, which screen corner the floating small mode lives in, and the large⇄small transition animation.
 
 ## 12. Possible future (explicitly later)
 
