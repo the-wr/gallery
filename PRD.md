@@ -166,9 +166,11 @@ the baked image: clickable, with hover (desktop) / tap (mobile) previews.
 zooming.
 
 - **R-I1 World level — map.** A baked world image with **one pin per country** (count badge, e.g. "Japan · 12"). Hover/tap shows a preview (country name, trip count, representative thumbnail); click opens that country's page. One pin per country absorbs the skew — no overlapping piles.
-- **R-I2 World level — catalogue.** Below the map, a scrollable catalogue is the discoverability-first path (not the map). **Open question — granularity, to prototype both in the mockup phase:**
-  - **(a) One tile per country** → opens the country page with that country's trip gallery. Compact; one extra click to any trip.
-  - **(b) One tile per trip** → all albums visible directly, multiple tiles per country (possibly grouped/collapsible by country). Maximum discoverability; longer page.
+- **R-I2 World level — catalogue with a granularity toggle.** Below the map, a scrollable catalogue is the discoverability-first path (not the map). A **toggle — styled consistently with the trip-page layer switcher (R-L7)** — lets the viewer choose granularity:
+  - **Countries** — one tile per country; tapping opens that country's page (its trip gallery). Compact overview.
+  - **Trips** — one tile per trip; every album visible directly (sorted by date), more tiles per country. Maximum discoverability.
+
+  The viewer's choice is remembered like other view preferences.
 - **R-I3 Country level — same template.** A country page reuses the layout: a baked **country image with one pin per trip** (hover/tap = trip preview: cover, title, dates; click = open trip), above a grid/list of that country's trips. A 1-trip country still lands here for consistency; a 12-trip country is a focused mini-index with a shareable per-country URL.
 - **R-I4 Auto-placement** — country and trip pins are derived automatically from extracted photo GPS / reverse-geocoded country, not hand-placed (owner can adjust).
 - **R-I5 Frozen maps** — both world and country maps are pre-rendered static images; the only interactivity is the pin overlay (click + hover/tap preview). No pan, no zoom, no live map dependency.
@@ -184,14 +186,14 @@ and fast scanning at O(100) trips. Covers are cropped to the fixed ratio.
 **No badges, no stacked/multi-image edges** — minimal, low-noise tiles: a cover
 plus a two-part caption.
 
-- **R-I9 Country tile** (world level). Cover photo + caption:
-  `<country name> · <year range> · <album count>`
-  (e.g. "Japan · 2018–2023 · 12 albums").
-- **R-I10 Trip tile** (country level). Cover photo + caption:
-  `<trip / place name> · <date> · <photo counts per public layer>`
-  (e.g. "Kyoto in Autumn · Nov 2022 · 10 / 45 / 300"). The per-layer counts cover
-  only **public** layers (e.g. Postcards / Highlights / Chronology); the private
-  Faces layer is excluded so its size is never revealed.
+Tile captions are **context-dependent** — the primary identifier matches the
+scope (country at world level, trip title once inside a country):
+
+- **R-I9 Country tile** — world page, **Countries** mode. Cover + caption:
+  `<country> · <date range> · <X albums>` (e.g. "Japan · 2018–2023 · 12 albums").
+- **R-I10 Trip tile** — caption varies by where it appears (no photo counts in either):
+  - World page, **Trips** mode: `<country> · <date>` (country is the salient label at world scope).
+  - Country page: `<title> · <date>` (e.g. "Kyoto in Autumn · Nov 2022"; country is implied by context).
 - **R-I11 Privacy on tiles.** Private (Faces) content never contributes to a cover, caption, or count shown to anonymous visitors (R-I6); no private indicator is rendered on public tiles.
 - **R-I12 Uniform covers.** All covers crop to one aspect ratio for aligned rows; the owner can pick which photo is the cover and, ideally, adjust its crop focal point.
 
@@ -229,16 +231,14 @@ manual override everywhere.
 - **Comments/notes** → owner-authored only.
 - **Captions** → one caption per photo, identical across layers (R-C6).
 - **Map** → interactive only while editing; frozen static image for viewers (R-C3).
-- **Front door** → one template (static map on top + scrollable catalogue below) reused at World and Country levels; **no view toggle**; maps are frozen images with a clickable/hoverable **pin overlay** (no pan/zoom/live map). World pins = countries, country pins = trips. World catalogue lists all trips grouped by country for discoverability (§8).
+- **Front door** → one template (static map on top + scrollable catalogue below) reused at World and Country levels; map and catalogue **coexist (no Map↔Catalogue toggle)**, but the world catalogue has a **Countries ⇄ Trips granularity toggle** (R-I2). Maps are frozen images with a clickable/hoverable **pin overlay** (no pan/zoom/live map); world pins = countries, country pins = trips. Tile captions are context-dependent: country tiles `country · date range · X albums`; trip tiles `country · date` at world level and `title · date` on a country page — no photo counts (R-I9/R-I10).
 - **Scale** → albums/trips O(100); per trip ~O(300) photos on the inner (Faces) layer, ~O(10) on Postcards. Index and album designs must stay comfortable at this scale.
 
 **Still open:**
 
 1. **Share-link lifecycle:** does the global link need rotation/revocation (regenerate to invalidate an over-shared old link), or is set-once acceptable for v1?
 2. **Pin placement on frozen maps:** pins are auto-placed from GPS, but on a non-zoomable world image, dense regions (e.g. several European countries) may crowd. Acceptable as-is, or do we need a minimum spacing / manual nudge step?
-3. **World catalogue granularity (R-I2):** tile-per-country vs tile-per-trip — **prototype both** in the mockup phase, then decide. May resolve as a **toggle** rather than a fixed choice: *group by country* ⇄ *all trips sorted by date*.
-4. **Per-layer count on trip tiles (R-I10):** how (or whether) to show `10 / 45 / 300` — bare numbers, labelled, total-only, or omitted. Decide visually in mockups.
-5. **Layer switcher visuals (R-L7):** two-mode behavior is decided; **prototype in mockups** the iconography, which screen corner the floating small mode lives in, and the large⇄small transition animation.
+3. **Layer switcher visuals (R-L7):** two-mode behavior is decided; **prototype in mockups** the iconography, which screen corner the floating small mode lives in, and the large⇄small transition animation.
 
 ## 12. Possible future (explicitly later)
 
