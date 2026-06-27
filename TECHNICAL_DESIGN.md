@@ -45,7 +45,7 @@ public read path is static-cache-friendly.
                          │                                             │
   Public visitor  ──────▶│  Viewer SPA/SSR  ── layer engine (FLIP),    │
   Trusted (token) ──────▶│                     lightbox, pin overlay   │
-  Owner (auth)    ──────▶│  Editor app  ── interactive MapLibre, DnD   │
+  Owner (auth)    ──────▶│  Editor app  ── upload, review, caption     │
                          └───────────────┬─────────────────────────────┘
                                          │ HTTPS
                   ┌──────────────────────▼───────────────────────────┐
@@ -67,10 +67,10 @@ public read path is static-cache-friendly.
           │  WAL mode, single file │   │  • sharp: derivatives, LQIP  │
           └────────────────────────┘   │  • exifr: EXIF/GPS/rating    │
                                         │  • offline reverse-geocode   │
-          ┌────────────────────────┐   │  • map bake (MapLibre→PNG)   │
-          │  Object/file storage   │◀──┤  • country/world map bake    │
+          ┌────────────────────────┐   │  • static map render         │
+          │  Object/file storage   │◀──┤  • country/world map render  │
           │  originals + derivs +  │   └──────────────────────────────┘
-          │  baked maps (on disk   │
+          │  static maps (on disk  │
           │  or S3-compatible)     │
           └────────────────────────┘
 ```
@@ -91,15 +91,14 @@ beat horizontal scalability here. (`R-X5`)
 | **Image processing** | **sharp** (libvips) | Fast resize, responsive derivatives, WebP/AVIF, blur-hash/LQIP generation. | ImageMagick (slower), browser-side (can't, originals are large) |
 | **EXIF / metadata** | **exifr** | Reads GPS, timestamp, and XMP/rating reliably; pure JS. | exiftool sidecar (more powerful, adds a binary dep — keep as fallback) |
 | **Reverse geocoding** | **Offline dataset** — Natural Earth admin-0 **country** polygons only for v1 | The index needs country (`R-I1`/`R-I3`); region/city is "ideally" in the PRD. Country-only drops a dataset (GeoNames) and a layer of logic — add city resolution later when something consumes it. No runtime third-party dependency, matches the "no live service" ethos (`R-C3`); runs once at upload. | Nominatim/Google API (runtime dep, rate limits, lock-in); +GeoNames cities (later) |
-| **Interactive map (editor only)** | **MapLibre GL JS** | Open, no API key required with self-hostable tiles/styles; pan/zoom/draw pins & routes. | Leaflet (fine, weaker vector styling); Mapbox (license/key) |
-| **Map baking** | **MapLibre headless render** → PNG/WebP base layer + **HTML hotspot overlay** for pins | Base map frozen to an image (`R-C3`, `R-I5`); pins stay as positioned, responsive, clickable HTML so they don't need re-baking and work at any screen width (`R-I1`, `R-I3`). | Fully flattened PNG incl. pins (loses responsive/clickable pins) |
+| **Static maps** | Natural Earth/GeoJSON → server-rendered SVG/PNG/WebP base + **HTML hotspot overlay** for pins | V1 needs frozen world/country maps and one optional trip overview map, not a live editor. Rendering simple static maps from local geometry keeps the stack smaller and avoids map-tile/runtime dependencies (`R-C3`, `R-I5`). | MapLibre editor/headless bake (more powerful, deferred until routes/heatmaps/multiple maps justify it); fully flattened PNG incl. pins (loses responsive/clickable pins) |
 | **Auth (owner)** | Session cookie + **password** (hashed, e.g. argon2) | One user; simplest complete answer. Passkey/WebAuthn deferred to later — real added surface (registration, recovery, browser quirks) for marginal gain at one user. | OAuth (needless third party); WebAuthn (later) |
-| **Share access** | High-entropy token → httpOnly cookie, token stripped from URL | Matches `R-share`/§4 exactly. | Signed JWT in URL (leaks in history; same stripping problem) |
+| **Share access** | High-entropy token → httpOnly cookie, token stripped from URL | Matches the PRD share-link flow (§4). | Signed JWT in URL (leaks in history; same stripping problem) |
 | **Deploy** | **Docker** image behind **Caddy** (auto-TLS) on a small VPS; optional CDN in front | Self-hosted, portable, exportable (`R-X5`). Caddy gives free HTTPS + caching. | PaaS (lock-in); serverless (awkward for the worker + large files) |
 
 **Single recommended stack in one line:** *SvelteKit + TypeScript + SQLite/Drizzle
-+ sharp + MapLibre, containerized behind Caddy, storing originals/derivatives on
-disk (S3-compatible optional).*
++ sharp + local GeoJSON/static map rendering, containerized behind Caddy, storing
+originals/derivatives on disk (S3-compatible optional).*
 
 ---
 
@@ -111,9 +110,9 @@ SQLite schema (Drizzle). IDs are app-generated (ULID/NanoID) for export-stabilit
 country
   code            TEXT PK            -- ISO-3166 alpha-2 (derived, R-W3)
   name            TEXT
-  world_pin_x     REAL               -- normalized 0..1 over the baked world image (R-I4)
+  world_pin_x     REAL               -- normalized 0..1 over the static world image (R-I4)
   world_pin_y     REAL
-  map_image_id    TEXT FK→asset      -- baked country base map (R-I3)
+  map_image_id    TEXT FK→asset      -- static country base map (R-I3)
   visited         BOOLEAN            -- for visited-summary (R-I7)
 
 trip                                  -- = album = one page (R-A1)
@@ -127,22 +126,16 @@ trip                                  -- = album = one page (R-A1)
   cover_photo_id  TEXT FK→photo
   cover_focal_x   REAL                -- crop focal point (R-I12)
   cover_focal_y   REAL
-  default_layer   TEXT                -- per-album default (R-L4, default 'highlights')
-  privacy_cut     INTEGER             -- layer order index; >= this is private (R-L5)
+  default_layer   TEXT                -- fixed layer key (R-L4, default 'highlights')
+  trip_map_image_id TEXT NULL FK→asset -- optional generated overview map (R-C3)
+  trip_map_pins   JSON NULL           -- normalized static-map hotspots, if any
   country_pin_x   REAL                -- on the country map (R-I4)
   country_pin_y   REAL
   position        INTEGER
 
-layer                                 -- per-album layer set (R-L6)
-  id              TEXT PK
-  trip_id         TEXT FK→trip
-  key             TEXT                -- 'postcards' | 'highlights' | ... (URL value, R-L14)
-  label           TEXT
-  icon            TEXT
-  order_index     INTEGER             -- 0 = outermost
-  -- privacy is NOT stored here: a layer is private iff order_index >= trip.privacy_cut.
-  -- One source of truth (trip.privacy_cut) avoids drift (R-L5).
-  UNIQUE(trip_id, order_index)
+-- Layers are a fixed v1 enum, not rows:
+-- 0 postcards, 1 highlights, 2 chronology, 3 faces.
+-- Faces (order 3) is private; custom layer sets/privacy cuts are later work.
 
 section                               -- sub-album = section on the page (R-A2)
   id              TEXT PK
@@ -158,14 +151,11 @@ block                                 -- ordered content stream (R-C5)
   trip_id         TEXT FK→trip
   section_id      TEXT NULL FK→section -- null = trip-level (before first section)
   position        INTEGER
-  kind            TEXT                -- 'photo_group' | 'text' | 'map'
+  kind            TEXT                -- 'photo_group' | 'text'
+  layout          TEXT NULL           -- photo_group: 'row' | 'hero'
   -- text:
   text_md         TEXT NULL
-  heading_level   INTEGER NULL        -- text-as-heading (R-C2)
-  -- map:
-  map_image_id    TEXT NULL FK→asset  -- baked map (R-C3)
-  map_pins        JSON NULL           -- normalized hotspot coords + labels
-  map_source      JSON NULL           -- editable map state (center/zoom/pins/route) to re-bake (R-C3)
+  heading_level   INTEGER NULL        -- limited to trip/section notes in v1 (R-C2)
   min_layer_order INTEGER             -- DERIVED on save (min over the block's photos); cache for collapse, R-L11 — never hand-edited
 
 photo
@@ -173,7 +163,6 @@ photo
   block_id        TEXT FK→block       -- belongs to a photo_group block
   asset_id        TEXT FK→asset       -- original
   position        INTEGER             -- within the group
-  is_hero         BOOLEAN             -- full-width vs grouped (R-C1)
   caption         TEXT NULL           -- one caption, all layers (R-C6)
   min_layer_order INTEGER             -- THE superset key (R-L2): appears in this layer and all inner
   -- extracted metadata (all overridable, R-W7/R-W8):
@@ -187,28 +176,31 @@ photo
 
 asset                                 -- physical file + its derivatives
   id              TEXT PK
-  kind            TEXT                -- 'photo' | 'baked_map'
+  kind            TEXT                -- 'photo' | 'static_map'
   original_path   TEXT
   derivatives     JSON                -- {320,1024,2048} × {avif,jpeg}, e.g. { "1024": { "avif": path, "jpeg": path }, ... }
   checksum        TEXT                -- dedupe / integrity
 
 share_token                           -- §4 family link
   id              TEXT PK
-  token_hash      TEXT                -- store only a hash (R-sec)
+  token_hash      TEXT                -- store only a hash (security, §14)
   created_at      DATETIME
   revoked_at      DATETIME NULL       -- rotation/revocation (open Q1, §11)
   label           TEXT NULL
 ```
 
-**Key derived invariant — `min_layer_order` (`R-L2`, `R-L3`):**
-on save, `photo.min_layer_order = map(rating → layer)` unless manually overridden
-(`R-W5`, `R-W7`); private assignment sets it to the private layer's order
-(`R-W6`). A photo with `min_layer_order = k` is included whenever the requested
-layer order ≥ `k`. This single integer comparison *is* the superset filter.
+**Key derived invariant — fixed `min_layer_order` (`R-L2`, `R-L3`):**
+v1 layer order is a global enum: `0=postcards`, `1=highlights`,
+`2=chronology`, `3=faces`. On save, `photo.min_layer_order =
+map(rating → layer)` unless manually overridden (`R-W5`, `R-W7`); private
+assignment sets it to `3` (`faces`, `R-W6`). A photo with
+`min_layer_order = k` is included whenever the requested layer order ≥ `k`.
+This single integer comparison *is* the superset filter.
 
-A `block`'s `min_layer_order` = min over its photos (a text/map block can be
-pinned to a layer or default to outermost). A `section` is "present" in layer `L`
-iff any descendant block has `min_layer_order ≤ L` — used for collapse (`R-L11`).
+A `block`'s `min_layer_order` = min over its photos; text blocks default to the
+outermost public layer unless the owner pins them deeper. A `section` is
+"present" in layer `L` iff any descendant block has `min_layer_order ≤ L` — used
+for collapse (`R-L11`).
 
 ---
 
@@ -258,11 +250,12 @@ anonymous sessions the private layers are absent from the props entirely — no 
 hint (`R-L8`).
 
 **Persistence & precedence (`R-L13`, `R-L14`, `R-L15`).**
-- Remembered layer stored in `localStorage` (per-device), as a layer *key*.
+- Remembered layer stored in `localStorage` (per-device), as one of the fixed
+  layer keys.
 - On loading an album, resolve layer by precedence:
   **URL `?l=` → remembered/sticky → album `default_layer`** (`R-L14`).
-- The remembered key maps to the **nearest layer this album offers** by order
-  index when the album's set differs (`R-L13`).
+- If the resolved layer is empty/hidden for this album, fall back to the nearest
+  non-empty public layer (`R-L13`).
 - If the resolved layer is private and the session is not unlocked, **silently
   fall back to the deepest public layer** — never signal why (`R-L15`).
 
@@ -279,7 +272,7 @@ leave the server. The client never receives private content it isn't entitled to
 - `unlocked` — has a valid, non-revoked share cookie → may see private layers.
 - `owner` — authenticated → everything + edit.
 
-**Share-link flow (§4, `R-share`):**
+**Share-link flow (§4):**
 1. Owner generates a token: 256-bit random, URL-safe. Stored **hashed**
    (`token_hash`) — the raw token exists only in the shared URL.
 2. Visitor opens `https://…/unlock/<token>`.
@@ -291,10 +284,11 @@ leave the server. The client never receives private content it isn't entitled to
 4. The cookie — not the URL — carries entitlement thereafter.
 
 **Query-time filtering.** Every read of trips/sections/blocks/photos applies a
-`WHERE min_layer_order < privacy_cut` predicate for non-`unlocked` sessions. The
-**world/country index** aggregates (counts, badges, covers, pins, date ranges)
-are computed from the **same filtered set**, so private trips/photos never
-influence a number or thumbnail shown to anonymous visitors (`R-I6`, `R-I11`).
+`WHERE min_layer_order < 3` predicate for non-`unlocked` sessions (`3 = faces`).
+The **world/country index** aggregates (counts, badges, covers, pins, date
+ranges) are computed from the **same filtered set**, so private trips/photos
+never influence a number or thumbnail shown to anonymous visitors (`R-I6`,
+`R-I11`).
 A trip whose *every* photo is private is entirely absent from public aggregates.
 
 **Revocation (open Q1, §11).** The `share_token` table supports multiple tokens
@@ -302,7 +296,7 @@ with `revoked_at`. Recommendation for v1: support **rotate-to-revoke** — gener
 a new token, mark old ones revoked. Cheap to build now, avoids a painful retrofit
 if a link over-spreads. (Set-once is the fallback if we want to ship leaner.)
 
-**Threat notes (`R-sec`):** rate-limit `/unlock` to blunt token brute force
+**Threat notes:** rate-limit `/unlock` to blunt token brute force
 (256-bit makes this moot but defense-in-depth); originals for private photos are
 served only through an auth-checked route, never a guessable static path; LQIP
 placeholders for private photos are likewise gated.
@@ -313,21 +307,24 @@ placeholders for private photos are likewise gated.
 
 The trip page is an ordered render of `block`s within `section`s (`R-A1`–`R-A3`).
 
-- **Photo groups (`R-C1`).** `is_hero` → full-bleed single image; otherwise a
-  justified/grouped row. The owner's hero vs grouped choice is stored, not
-  auto-packed — defaults assist, placement is hand-tunable (§7 intro, `R-C5`).
-- **Text blocks (`R-C2`).** Markdown (sanitized) rendered to prose; `heading_level`
-  promotes a text block to a section/trip heading at a chosen size.
-- **Map blocks (`R-C3`, `R-C4`).** Baked image + hotspot overlay (§9). Multiple
-  per page allowed; placeable anywhere via `position`.
+- **Photo groups (`R-C1`).** `block.layout = hero` renders a full-bleed/single
+  emphasis group; `row` renders a normal grouped row. Import chooses sensible
+  chronological groups; the owner can mark a small number of heroes and adjust
+  grouping without hand-building every block.
+- **Text blocks (`R-C2`).** Markdown (sanitized) rendered as trip intro or section
+  notes/headings. Arbitrary interleaved prose and custom heading systems are
+  deferred.
+- **Trip overview map (`R-C3`).** Optional, stored on `trip`, rendered near the
+  top of the album as a frozen image + hotspot overlay. Multiple local map blocks,
+  routes, heatmaps, and an interactive map editor are later work (`R-C4`).
 - **Ordering (`R-C5`).** `position` integers; photos default to chronological
   (`taken_at`) at import, then owner-curated.
 - **Sections (`R-A2`, `R-A3`).** Headings + collapse toggle; a "jump to section"
   menu (built from the section list) scrolls within the page — no sibling page
   nav. v1 ships **flat sections only**; `parent_id` is reserved for nested
   sub-sections later (`R-A2` calls nesting "desirable," not required).
-- **Inherited context (`R-A5`).** Section dates/map fall back to trip-level unless
-  overridden.
+- **Inherited context (`R-A5`).** Section dates/labels fall back to trip-level
+  context unless overridden. Section-level maps are later work.
 - **Single "up" affordance (`R-A4`).** A persistent up-link to the country page
   (then world), covering direct arrivals with no in-site history. No breadcrumbs.
 
@@ -350,33 +347,35 @@ only** (a hero is a group of one).
 
 ## 8. Maps pipeline
 
-Two map contexts, one shared principle: **interactive while editing, frozen for
-viewers** (`R-C3`, `R-I5`).
+V1 has three static-map outputs: world index, country index, and one optional
+trip overview map. There is no live viewer map and no interactive map editor in
+v1 (`R-C3`, `R-I5`).
 
-**Editing (owner, interactive).** MapLibre GL JS in the editor: pan, zoom, place
-and drag pins, draw routes, toggle a shooting-density heatmap (`R-C4`). The
-editable state (center, zoom, pins, route geometry, heatmap on/off) is persisted
-as `block.map_source` JSON so the owner can re-edit and re-bake later (`R-C3`).
-
-**Baking (on save).** A headless MapLibre render produces a static base image
-(PNG/WebP) at the needed widths. Routes and the heatmap are rendered **into** the
-baked image (`R-C4`). **Pins are NOT flattened** — they are exported as normalized
+**Rendering.** The worker projects local Natural Earth/GeoJSON geometry into a
+simple SVG base map, then rasterizes it to PNG/WebP (via sharp) at the needed
+widths. Pins are **not flattened** — they are exported as normalized
 `{x, y, label, target}` hotspots stored alongside, and rendered as absolutely
 positioned, responsive, clickable HTML over the base image. This keeps pins
-sharp, tappable, and accessible at any width without re-baking, while honoring
-"no live map service at runtime" (`R-C3`, `R-I1`, `R-I3`).
+sharp, tappable, and accessible at any width without re-rendering the base map,
+while honoring "no live map service at runtime" (`R-C3`, `R-I1`, `R-I3`).
+
+**Trip overview map (`R-C3`).** If a trip has enough GPS-tagged photos, the worker
+can generate a single static overview map from those points. The owner can
+accept it, hide it, regenerate it after metadata edits, or replace the image.
+Routes, heatmaps, multiple local maps, pin dragging, and richer map authoring are
+deferred until they justify a MapLibre-style editor (`R-C4`).
 
 **World & country index maps (§8).** Same mechanism at two scopes:
-- **World:** one baked world image, **one pin per country** with a count badge
+- **World:** one static world image, **one pin per country** with a count badge
   (`R-I1`); hover/tap preview (name, trip count, representative thumb); click →
   country page.
-- **Country:** baked country image, **one pin per trip** (`R-I3`); preview = cover,
+- **Country:** static country image, **one pin per trip** (`R-I3`); preview = cover,
   title, dates; click → trip.
 - **Auto-placement (`R-I4`):** pin coordinates derived from photo GPS /
-  reverse-geocoded country centroid, projected into the baked image's coordinate
-  space and stored normalized; owner can nudge. (Open Q2 — dense-region crowding:
-  the design supports an optional manual nudge + a minimum-spacing declutter pass;
-  recommend shipping auto-placement first, add declutter if Europe crowds.)
+  reverse-geocoded country centroid, projected into the static image's coordinate
+  space and stored normalized. (Open Q2 — dense-region crowding: recommend
+  shipping auto-placement first, then add a minimum-spacing declutter pass if
+  Europe crowds.)
 - **Privacy (`R-I6`):** badges/counts/previews computed from the privacy-filtered
   set per §6.
 - **Visited summary (`R-I7`):** `country.visited` drives a highlight on the world
@@ -407,20 +406,21 @@ upload → store original → enqueue job →
   → write photo + asset rows → notify editor (progress)
 ```
 
-- **Graceful gaps (`R-W8`):** missing GPS → no pin; missing timestamp → fall back
+- **Graceful gaps (`R-W8`):** missing GPS → no trip map/index pin; missing timestamp → fall back
   to upload order; missing rating → album default layer. Nothing blocks.
-- **Manual everywhere (`R-W7`):** location, country, order, layer, caption, cover,
-  crop focal point are all editable post-extract.
+- **Manual v1 controls (`R-W7`):** location/country, section, order, layer,
+  caption, cover, crop focal point, and trip-map visibility are editable
+  post-extract.
 - **Private assignment (`R-W6`):** manual only — owner assigns photos to the
   private layer (sets `min_layer_order` to the private layer). No face detection
   in v1.
-- **Rating→layer map (`R-L3`):** configurable per album, default
+- **Rating→layer map (`R-L3`):** fixed v1 default
   `5★→Postcards, 4★→Highlights, 3★→Chronology, else→Chronology`; private is never
   auto-assigned.
 
-**Publish.** Saving a trip recomputes derived fields, re-bakes any dirty maps,
-and (if using a static CDN cache) issues targeted cache invalidations for the
-affected trip/country/world pages.
+**Publish.** Saving a trip recomputes derived fields, regenerates any affected
+static maps, and (if using a static CDN cache) issues targeted cache
+invalidations for the affected trip/country/world pages.
 
 ---
 
@@ -439,7 +439,7 @@ affected trip/country/world pages.
   deliberately **avoid windowing / mount-unmount of offscreen groups**: it fights
   the two hardest features here — scroll **anchoring** (`R-L9`) and **FLIP**
   (`R-L10`) both need stable, measurable nodes (`getBoundingClientRect`), which
-  unmounted nodes don't provide — and virtualizing a mixed-height magazine layout
+  unmounted nodes don't provide — and virtualizing a mixed-height guided layout
   is notoriously fiddly. Revisit virtualization only if a real 300-photo page
   measures slow.
 - **Caching:** immutable, content-hashed derivative URLs → long-lived cache
@@ -468,11 +468,13 @@ with the private-gating fallback of `R-L15`.
 ## 12. Editor / admin
 
 SvelteKit routes under `/admin`, owner-auth required. Capabilities:
-drag-and-drop upload with live progress; reorder blocks/photos; mark hero vs
-grouped; edit captions/text/headings; interactive MapLibre map editing + bake;
-assign layers (incl. private) and per-album layer-set config (`R-L6`); set cover
-+ crop focal point (`R-I12`); generate/rotate/revoke share tokens (§6); preview
-as anonymous vs unlocked to validate the privacy boundary.
+drag-and-drop upload with live progress; review auto-created sections/groups;
+reorder sections and photo groups; mark hero groups; edit captions, intro, and
+section notes; assign fixed v1 layers (including Faces/private); set cover +
+crop focal point (`R-I12`); accept/hide/regenerate the optional trip overview
+map; generate/rotate/revoke share tokens (§6); preview as anonymous vs unlocked
+to validate the privacy boundary. Full freeform block layout, custom layer sets,
+and interactive map editing are deferred.
 
 ---
 
@@ -491,10 +493,10 @@ One box runs everything; no external services required.
 VPS (e.g. Hetzner 2 vCPU / 4 GB)
   └─ Docker
        ├─ Caddy            → TLS (auto HTTPS) + HTTP caching + static serving
-       └─ app container    → SvelteKit (SSR) + worker (sharp, map bake)
+       └─ app container    → SvelteKit (SSR) + worker (sharp, static maps)
             └─ /data        (a mounted volume — survives container restarts)
                  ├─ gallery.db        SQLite (WAL)
-                 └─ assets/**         originals + derivatives + baked maps
+                 └─ assets/**         originals + derivatives + static maps
 ```
 
 - **One `docker compose up`** brings up Caddy + the app. Caddy fetches/renews
@@ -528,9 +530,8 @@ Laptop
     container" problems.
 - **Same code path as prod:** SQLite, the `filesystem` storage driver, sharp, and
   offline geocoding all run with **zero external accounts** — nothing to mock.
-  Map baking (headless MapLibre) runs locally too; if its native binary is
-  awkward on a given OS, a `MAP_BAKE=stub` flag swaps in a placeholder image so UI
-  work isn't blocked.
+  Static map rendering runs locally too; if local geometry/assets are absent, a
+  `MAP_RENDER=stub` flag swaps in a placeholder image so UI work isn't blocked.
 - **Config by env file:** a committed `.env.example` documents every variable; you
   copy it to `.env`. Local differs from prod only in values (`DATABASE_URL`,
   `DATA_DIR`, `BASE_URL`, `STORAGE_DRIVER=filesystem`, owner credentials,
@@ -609,27 +610,31 @@ folder structure; an `export` command can emit a fully static public snapshot
 
 **Milestone 1 — Must-have v1 core**
 Data model + SQLite; upload pipeline with EXIF/GPS/rating extraction + offline
-**country** geocode (`R-W*`); trip page with **flat sections**, photo/text/map
-blocks (`R-A*`, `R-C*`); the **layer engine** with anchoring + FLIP + persistence
-(`R-L*`); privacy via query-time filtering + share-token unlock (§4/§6); world +
-country index with baked maps and pin overlay (`R-I*`); lightbox (`R-C7`–`R-C11`).
+**country** geocode (`R-W*`); trip page with **flat sections**, guided
+photo/text layout, and one optional static trip overview map (`R-A*`, `R-C*`);
+the **fixed global layer engine** with anchoring + FLIP + persistence (`R-L*`);
+privacy via query-time filtering + share-token unlock (§4/§6); world + country
+index with static maps and pin overlay (`R-I*`); lightbox (`R-C7`–`R-C11`).
 Performance via native lazy + LQIP only (no virtualization). Owner auth via
 password.
 
 **Milestone 2 — Should-have**
-Baked routes + shooting heatmap (`R-C4`); collapsible-section polish + jump-to;
-visited-country summary (`R-I7`); chronological sort toggle (`R-I8`); share-token
-rotation UI.
+Collapsible-section polish + jump-to; visited-country summary (`R-I7`);
+chronological sort toggle (`R-I8`); share-token rotation UI; light trip-map
+regeneration/replacement controls.
 
 **Milestone 3 — Could-have / later (§12)**
-Orthogonal "views" axis; trusted-viewer private notes; timeline resurfacing;
-search; multi-language captions. (Schema leaves room: `min_layer_order` is one
-axis; a future `view` axis is additive.)
+Custom per-album layer sets/privacy cuts; full magazine-style block editor;
+multiple album maps, routes, heatmaps, and interactive map editing; orthogonal
+"views" axis; trusted-viewer private notes; timeline resurfacing; search;
+multi-language captions. (Schema leaves room: `min_layer_order` is one axis; a
+future `view` axis is additive.)
 
 **Deferred-by-simplification (pull in only when justified):** nested sub-sections
 (`section.parent_id`); region/city geocoding (+GeoNames); passkey/WebAuthn auth;
-extra derivative widths/formats; trip-page virtualization. Each has a seam left in
-the design so it's additive, not a rewrite.
+extra derivative widths/formats; trip-page virtualization; custom layer schema;
+MapLibre-style map authoring. Each has a seam left in the design so it's
+additive, not a rewrite.
 
 ---
 
@@ -643,4 +648,3 @@ the design so it's additive, not a rewrite.
 - **Quality `R-X1`–`R-X5`** → §10 (perf/responsive), §13 (durable/export), §14.
 - **Access/privacy (§4)** → §6.
 - **Open questions (§11)** → §15.
-```

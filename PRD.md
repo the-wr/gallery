@@ -22,7 +22,7 @@ illustrated travelogue.
 ## 2. Goals
 
 - **Layered storytelling.** One album, multiple density levels, switchable in place.
-- **Mixed content.** Photos interleaved with maps, routes, and written narrative.
+- **Mixed content.** Photos interleaved with optional maps and written narrative.
 - **Geographic browsing.** A world map and country index as primary navigation.
 - **Structured trips.** Big trips can nest per-location sub-albums with seamless navigation.
 - **Low-friction publishing.** Upload photos; let the system extract as much
@@ -44,7 +44,7 @@ The gallery serves two viewer types from the same content:
 
 | Viewer | Sees | Access |
 |---|---|---|
-| **Public visitor** | Outer (curated) layers; maps, routes, narrative; world index | Open, link- and search-discoverable |
+| **Public visitor** | Outer (curated) layers; maps, narrative; world index | Open, link- and search-discoverable |
 | **Trusted viewer** (family/friends) | Everything, including the inner face-bearing layer | Global private share link (no account required) |
 | **Me (owner)** | Everything + editing/upload | Authenticated |
 
@@ -65,7 +65,7 @@ address bar). No account or password required. (Revocation/expiry — see §11.)
 A **layer** is a depth-of-detail view of the *same* album. Layers are **nested
 supersets**: each outer layer is a strict subset of the next inner one.
 
-Default layers (outer → inner) — a sensible default, **configurable per album**:
+V1 uses one fixed global layer set (outer → inner):
 
 1. **Postcards** — a handful of the very best shots (~O(10) photos). The "show me the highlight" view.
 2. **Highlights** — the strong set most viewers want; the default landing view.
@@ -78,8 +78,8 @@ Requirements:
 - **R-L2** Because layers are nested, a photo carries a *minimum layer* (the outermost layer it appears in) and automatically appears in all inner layers too.
 - **R-L3** A photo's minimum layer should be **derivable automatically from its rating/stars** where available (e.g. 5★ → Postcards, 4★ → Highlights), with manual override.
 - **R-L4** The default layer shown on first load is configurable per album (default: Highlights).
-- **R-L5** The privacy cut between "public" and "private" layers is configurable; layers inside the cut require the share link (default: Faces is private).
-- **R-L6** Layer set (names, count, which is default, which is private) is **configurable per album** — not every trip needs all four. The four-layer default applies unless overridden.
+- **R-L5** The privacy cut is fixed for v1: **Faces** is private and requires the share link; Postcards, Highlights, and Chronology are public.
+- **R-L6** The layer set is fixed for v1. Albums may hide empty layers, but custom layer names/counts/privacy cuts are future work.
 - **R-L7 Switcher control — two modes, scroll-driven.** A **named segmented control** with two presentations:
   - **Large mode** — icon + label + per-layer photo count for each layer.
   - **Small mode** — icons only (compact).
@@ -102,7 +102,7 @@ loading a new page.
 - **R-L10 Animate in place.** Going deeper *inserts* photos between existing ones; going shallower *removes* them. Photos common to both layers keep their position. No hard reload.
 - **R-L11 Layer-dependent sections.** A section (sub-album) with no photos in the current layer collapses/disappears, heading included. A section that is *entirely* private photos therefore does not exist in public layers — this is also the privacy mechanism for anonymous visitors.
 - **R-L12 Preserve view state.** A section's collapsed/expanded state, and any per-layer photo counts shown on the switcher, are unaffected by switching (counts describe the album, not the current view).
-- **R-L13 Persistence — sticky + remembered.** The chosen layer carries across trips within a visit *and* is remembered on the next visit (stored per-device), mapped to the **nearest layer** a given album offers. The very first album of a brand-new viewer uses that album's default until the switcher is touched.
+- **R-L13 Persistence — sticky + remembered.** The chosen layer carries across trips within a visit *and* is remembered on the next visit (stored per-device). If an album hides that layer because it has no photos there, the viewer falls back to the nearest non-empty public layer. The very first album of a brand-new viewer uses that album's default until the switcher is touched.
 - **R-L14 Layer in the URL.** The current layer is reflected in the URL so a specific layer view can be shared/bookmarked (e.g. `?l=postcards`). **Precedence: explicit URL layer → remembered/sticky preference → album default.**
 - **R-L15 Private layer is always gated.** A remembered or URL-specified **Faces** view still requires the family-link unlock; without a valid unlock it **silently falls back** to the deepest public layer, revealing nothing about the private content.
 
@@ -120,22 +120,22 @@ within that page**, not destinations you navigate into.
 - **R-A2 Sub-albums as sections.** A multi-location trip is organised into **sections** (e.g. one per city/location), each with its own heading, laid out in sequence on the same page. At least one level of sectioning is required; nested sub-sections are desirable.
 - **R-A3 Collapsible sections.** Each section can be **collapsed/expanded** to keep a long trip manageable; a section list / "jump to" affordance lets the viewer skip between sections without leaving the page (this replaces page-to-page sibling nav).
 - **R-A4 No breadcrumbs; single "up" link.** With a fixed 3-level depth (World → Country → Trip) and a one-page trip, no breadcrumb trail is needed — browser-back handles normal navigation. The only gap is **direct arrivals** (shared trip link, or a tile-per-trip world catalogue that jumps straight to a trip) with no in-site history; for them a single always-present **"up" affordance** (to the country / home) is enough. In-trip movement is scroll + jump-to-section, not drill in/out.
-- **R-A5 Inherited context.** A section inherits trip-level context (dates, region) but can override (its own dates, its own map).
+- **R-A5 Inherited context.** A section inherits trip-level context (dates, region) but can override its own dates/label where useful. Section-level maps are later work.
 - **R-A6 Layer consistency.** The layer choice applies to the **whole page** at once (all sections) and persists as the viewer scrolls; switching layers re-renders in place without losing position where reasonable (R-L1).
 - **R-A7 Performance at length.** Because a full trip (≈300 photos on the inner layer) lives on one page, content must **lazy-load** as the viewer scrolls so the page stays fast (R-X1).
 
 ## 7. Rich content blocks (beyond photos)
 
-An album is a sequence of **content blocks**, not just a photo grid. Layout is an
-**owner-curated mix** (magazine-like): the owner arranges emphasis — full-width
-hero shots, smaller grouped rows, and interleaved text — rather than relying on a
-single automatic packing. Sensible defaults assist, but placement is hand-tunable.
+An album is a sequence of **sections**, not just a photo grid. V1 favors a guided
+layout over a full magazine editor: photos default into chronological groups, and
+the owner can tune section headings, captions, covers, layer assignment, and a
+small amount of emphasis without hand-building every block.
 
-- **R-C1 Photos** — single full-width "hero" images and multi-image grouped rows. The owner controls which shots get emphasis (hero vs grouped). **Captions are optional** — a photo may have none.
-- **R-C2 Text blocks** — standalone prose between photos (intros, daily notes, context). A text block can also be a **title/heading** at a chosen level (customizable font size / heading level), so sections and the trip can have headings, not just body prose. Plus optional per-photo captions.
-- **R-C3 Maps anywhere — frozen for viewers.** A map is a **block placeable anywhere in the album** (not only at the top), and **multiple maps are allowed** (e.g. an overview map up top, plus a local map within a section). During upload the owner gets an **interactive** map (pan, zoom, place/adjust pins, draw routes); on save each is **flattened to a static image** viewers see — no live mapping service, no interactivity, no runtime dependency. The owner re-edits and re-bakes when needed.
-- **R-C4 Route & heatmap** — the editable map can include the trip route (path between locations) and/or a shooting-density heatmap; these too are baked into the frozen static image.
-- **R-C5 Ordering** — blocks can be arranged in a deliberate order; photos default to chronological but the owner can curate.
+- **R-C1 Photos** — single full-width "hero" images and multi-image grouped rows. Defaults choose a clean chronological layout; the owner can mark a small number of hero photos and adjust grouping when needed. **Captions are optional** — a photo may have none.
+- **R-C2 Text blocks** — trip intro and section notes/headings, plus optional per-photo captions. Arbitrary interleaved prose blocks and custom heading levels are later work.
+- **R-C3 Single trip map — frozen for viewers.** A trip may have one optional overview map, generated from photo GPS and shown near the top of the album. Viewers see a static image with no live map service, no pan/zoom, and no runtime dependency. The owner can accept, hide, regenerate, or replace it.
+- **R-C4 Route & heatmap (later)** — drawn routes, shooting-density heatmaps, multiple local maps, and an interactive map editor are not v1 requirements.
+- **R-C5 Ordering** — photos default to chronological order; the owner can reorder sections and photo groups, with fine-grained freeform layout deferred.
 - **R-C6 One caption per photo** — a photo shows the **same** caption in every layer it appears in (no per-layer caption variants).
 
 ### 7.1 Lightbox / fullscreen
@@ -158,14 +158,14 @@ two scopes (World, then Country). There is **no view toggle**: map and catalogue
 coexist on one normal scrollable page. Designed for O(100) trips with a heavily
 skewed distribution (some countries 10+ trips, some only 1).
 
-**The map is a frozen image with a clickable pin overlay** — not a live,
+**The map is a static/frozen image with a clickable pin overlay** — not a live,
 pannable, or zoomable map (consistent with the per-album frozen-map principle,
 R-C3; no map tiles/service at runtime). Pins are positioned hotspots layered over
-the baked image: clickable, with hover (desktop) / tap (mobile) previews.
-"Drilling in" = navigating to the next baked image (world → per-country), **not**
+the static image: clickable, with hover (desktop) / tap (mobile) previews.
+"Drilling in" = navigating to the next static image (world → per-country), **not**
 zooming.
 
-- **R-I1 World level — map.** A baked world image with **one pin per country** (count badge, e.g. "Japan · 12"). Hover/tap shows a preview (country name, trip count, representative thumbnail); click opens that country's page. One pin per country absorbs the skew — no overlapping piles.
+- **R-I1 World level — map.** A static world image with **one pin per country** (count badge, e.g. "Japan · 12"). Hover/tap shows a preview (country name, trip count, representative thumbnail); click opens that country's page. One pin per country absorbs the skew — no overlapping piles.
 - **R-I2 World level — catalogue with a granularity toggle.** Below the map, a scrollable catalogue is the discoverability-first path (not the map). A **toggle — styled consistently with the trip-page layer switcher (R-L7)** — lets the viewer choose granularity:
   - **Countries** — one tile per country; tapping opens that country's page (its trip gallery). Compact overview.
   - **Trips** — one tile per trip; every album visible directly (sorted by date), more tiles per country. Maximum discoverability.
@@ -203,13 +203,13 @@ The owner adds content by **uploading photos through a web UI**; the system does
 the structural heavy lifting by **extracting metadata automatically**, with
 manual override everywhere.
 
-- **R-W1 Web upload** — drag-and-drop upload, arrange, and caption in the browser.
-- **R-W2 GPS → location** — extract photo GPS to power per-album maps, routes, and heatmaps.
+- **R-W1 Web upload** — drag-and-drop upload, review auto-created sections/groups, assign layers, choose covers, and caption in the browser.
+- **R-W2 GPS → location** — extract photo GPS to power the optional trip overview map and world/country index pins.
 - **R-W3 Location → country** — reverse-geocode to a country (and ideally region/city) to drive the world map pin and country index automatically.
 - **R-W4 Time → order** — use capture timestamps to build the default chronological ordering and trip date range.
 - **R-W5 Rating → layer** — use the photo's star rating to assign its minimum layer automatically (see R-L3).
 - **R-W6 Manual privacy** — the private (Faces) layer is defined **manually** by the owner assigning photos to it. No face detection in v1.
-- **R-W7 Manual override** — every extracted value (location, country, order, layer, caption) is editable.
+- **R-W7 Manual override** — core extracted values (country/location, order, layer, section, caption, cover, map visibility) are editable.
 - **R-W8 Graceful gaps** — photos missing GPS/timestamp/rating still work (no map pin, fall back to upload order, default layer).
 
 ## 10. Experience & quality bar
@@ -225,12 +225,12 @@ manual override everywhere.
 **Decided:**
 
 - **Share link** → one global "family" link, unguessable URL, token removed from the visible address bar after unlock (§4).
-- **Layer model** → default four (Postcards, Highlights, Chronology, Faces), configurable per album; Faces private by default (§5).
+- **Layer model** → fixed global four-layer set for v1 (Postcards, Highlights, Chronology, Faces); Faces is private (§5). Custom layer sets are later work.
 - **Views vs layers** → density layers only; no orthogonal re-orderings in v1.
 - **Faces & privacy** → manual layer assignment, no detection/automation in v1 (R-W6).
 - **Comments/notes** → owner-authored only.
 - **Captions** → one caption per photo, identical across layers (R-C6).
-- **Map** → interactive only while editing; frozen static image for viewers (R-C3).
+- **Map** → frozen static images for viewers. V1 has world/country index maps plus one optional trip overview map; routes, heatmaps, multiple album maps, and an interactive map editor are later work (R-C3/R-C4).
 - **Front door** → one template (static map on top + scrollable catalogue below) reused at World and Country levels; map and catalogue **coexist (no Map↔Catalogue toggle)**, but the world catalogue has a **Countries ⇄ Trips granularity toggle** (R-I2). Maps are frozen images with a clickable/hoverable **pin overlay** (no pan/zoom/live map); world pins = countries, country pins = trips. Tile captions are context-dependent: country tiles `country · date range · X albums`; trip tiles `country · date` at world level and `title · date` on a country page — no photo counts (R-I9/R-I10).
 - **Scale** → albums/trips O(100); per trip ~O(300) photos on the inner (Faces) layer, ~O(10) on Postcards. Index and album designs must stay comfortable at this scale.
 
@@ -243,6 +243,9 @@ manual override everywhere.
 ## 12. Possible future (explicitly later)
 
 - Orthogonal "views" (by person, by place) layered on top of density layers.
+- Custom per-album layer sets / custom privacy cuts.
+- Full magazine-style layout editor with arbitrary interleaved blocks.
+- Multiple album maps, routes, heatmaps, and interactive map editing.
 - Lightweight private notes/reactions from trusted viewers.
 - Timeline / "this trip N years ago" resurfacing.
 - Search (by place, date, caption text).
@@ -252,6 +255,6 @@ manual override everywhere.
 
 ### Priority snapshot (for the next conversation)
 
-- **Must-have v1:** layered albums (§5), trip + sub-album nesting (§6), photo + text + frozen per-album map blocks (§7), front door = static map + scrollable catalogue, reused at World/Country levels with a clickable pin overlay (§8), web upload with GPS/country/rating extraction (§9), global private share-link split (§4).
-- **Should-have:** baked routes/heatmap on the map, collapsible sections, visited-country summary.
+- **Must-have v1:** fixed global layered albums (§5), trip + flat section structure (§6), guided photo layout with captions/section notes and one optional frozen trip overview map (§7), front door = static map + scrollable catalogue reused at World/Country levels with a clickable pin overlay (§8), web upload with GPS/country/rating extraction (§9), global private share-link split (§4).
+- **Should-have:** collapsible sections, visited-country summary, light manual map replacement/regeneration.
 - **Could-have / later:** §12 items.
