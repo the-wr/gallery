@@ -90,10 +90,10 @@ beat horizontal scalability here. (`R-X5`)
 | **Metadata DB** | **SQLite** (WAL) via **Drizzle ORM** | Single file = durable, trivially backed up and exported (`R-X5`). No DB server to run. Ample for this scale. | Postgres (overkill, adds a service); JSON files (loses query/joins for the index) |
 | **Image processing** | **sharp** (libvips) | Fast resize, responsive derivatives, WebP/AVIF, blur-hash/LQIP generation. | ImageMagick (slower), browser-side (can't, originals are large) |
 | **EXIF / metadata** | **exifr** | Reads GPS, timestamp, and XMP/rating reliably; pure JS. | exiftool sidecar (more powerful, adds a binary dep — keep as fallback) |
-| **Reverse geocoding** | **Offline dataset** (Natural Earth admin-0 polygons + optional GeoNames cities) | No runtime third-party dependency, matches the "no live service" ethos (`R-C3`); runs once at upload. | Nominatim/Google API (runtime dep, rate limits, lock-in) |
+| **Reverse geocoding** | **Offline dataset** — Natural Earth admin-0 **country** polygons only for v1 | The index needs country (`R-I1`/`R-I3`); region/city is "ideally" in the PRD. Country-only drops a dataset (GeoNames) and a layer of logic — add city resolution later when something consumes it. No runtime third-party dependency, matches the "no live service" ethos (`R-C3`); runs once at upload. | Nominatim/Google API (runtime dep, rate limits, lock-in); +GeoNames cities (later) |
 | **Interactive map (editor only)** | **MapLibre GL JS** | Open, no API key required with self-hostable tiles/styles; pan/zoom/draw pins & routes. | Leaflet (fine, weaker vector styling); Mapbox (license/key) |
 | **Map baking** | **MapLibre headless render** → PNG/WebP base layer + **HTML hotspot overlay** for pins | Base map frozen to an image (`R-C3`, `R-I5`); pins stay as positioned, responsive, clickable HTML so they don't need re-baking and work at any screen width (`R-I1`, `R-I3`). | Fully flattened PNG incl. pins (loses responsive/clickable pins) |
-| **Auth (owner)** | Session cookie + password or **passkey/WebAuthn** | One user; keep it simple and phishing-resistant. | OAuth (needless third party) |
+| **Auth (owner)** | Session cookie + **password** (hashed, e.g. argon2) | One user; simplest complete answer. Passkey/WebAuthn deferred to later — real added surface (registration, recovery, browser quirks) for marginal gain at one user. | OAuth (needless third party); WebAuthn (later) |
 | **Share access** | High-entropy token → httpOnly cookie, token stripped from URL | Matches `R-share`/§4 exactly. | Signed JWT in URL (leaks in history; same stripping problem) |
 | **Deploy** | **Docker** image behind **Caddy** (auto-TLS) on a small VPS; optional CDN in front | Self-hosted, portable, exportable (`R-X5`). Caddy gives free HTTPS + caching. | PaaS (lock-in); serverless (awkward for the worker + large files) |
 
@@ -140,13 +140,14 @@ layer                                 -- per-album layer set (R-L6)
   label           TEXT
   icon            TEXT
   order_index     INTEGER             -- 0 = outermost
-  is_private      BOOLEAN             -- derived from trip.privacy_cut (R-L5)
+  -- privacy is NOT stored here: a layer is private iff order_index >= trip.privacy_cut.
+  -- One source of truth (trip.privacy_cut) avoids drift (R-L5).
   UNIQUE(trip_id, order_index)
 
 section                               -- sub-album = section on the page (R-A2)
   id              TEXT PK
   trip_id         TEXT FK→trip
-  parent_id       TEXT NULL FK→section  -- nested sub-sections (R-A2 desirable)
+  parent_id       TEXT NULL FK→section  -- reserved for nested sub-sections; UNUSED in v1 (flat sections only, R-A2)
   heading         TEXT
   date_start      DATE NULL           -- override (R-A5)
   date_end        DATE NULL
@@ -165,7 +166,7 @@ block                                 -- ordered content stream (R-C5)
   map_image_id    TEXT NULL FK→asset  -- baked map (R-C3)
   map_pins        JSON NULL           -- normalized hotspot coords + labels
   map_source      JSON NULL           -- editable map state (center/zoom/pins/route) to re-bake (R-C3)
-  min_layer_order INTEGER             -- lowest layer this block appears in (for collapse, R-L11)
+  min_layer_order INTEGER             -- DERIVED on save (min over the block's photos); cache for collapse, R-L11 — never hand-edited
 
 photo
   id              TEXT PK
@@ -188,7 +189,7 @@ asset                                 -- physical file + its derivatives
   id              TEXT PK
   kind            TEXT                -- 'photo' | 'baked_map'
   original_path   TEXT
-  derivatives     JSON                -- { "320": path, "800": path, "1600": path, "avif": ... }
+  derivatives     JSON                -- {320,1024,2048} × {avif,jpeg}, e.g. { "1024": { "avif": path, "jpeg": path }, ... }
   checksum        TEXT                -- dedupe / integrity
 
 share_token                           -- §4 family link
@@ -322,8 +323,9 @@ The trip page is an ordered render of `block`s within `section`s (`R-A1`–`R-A3
 - **Ordering (`R-C5`).** `position` integers; photos default to chronological
   (`taken_at`) at import, then owner-curated.
 - **Sections (`R-A2`, `R-A3`).** Headings + collapse toggle; a "jump to section"
-  menu (built from the section tree) scrolls within the page — no sibling page
-  nav. `parent_id` supports nested sub-sections.
+  menu (built from the section list) scrolls within the page — no sibling page
+  nav. v1 ships **flat sections only**; `parent_id` is reserved for nested
+  sub-sections later (`R-A2` calls nesting "desirable," not required).
 - **Inherited context (`R-A5`).** Section dates/map fall back to trip-level unless
   overridden.
 - **Single "up" affordance (`R-A4`).** A persistent up-link to the country page
@@ -398,8 +400,8 @@ async in the worker so the UI stays responsive.
 ```
 upload → store original → enqueue job →
   exifr: GPS (R-W2), timestamp (R-W4), rating (R-W5)
-  offline reverse-geocode: country/region/city (R-W3)
-  sharp: derivatives {320,800,1600,2400} × {avif,webp}, LQIP (R-X1)
+  offline reverse-geocode: country (R-W3) — region/city deferred to later
+  sharp: derivatives {320,1024,2048} × {avif,jpeg}, LQIP (R-X1)
   derive: date range, default chronological order (R-W4),
           min_layer from rating map (R-W5 → R-L3)
   → write photo + asset rows → notify editor (progress)
@@ -425,12 +427,21 @@ affected trip/country/world pages.
 ## 10. Image delivery & performance (`R-X1`, `R-X2`, `R-A7`)
 
 - **Responsive derivatives** generated up-front by sharp; `<img srcset>` +
-  `sizes` picks the right width per viewport/DPR. AVIF with WebP/JPEG fallback.
+  `sizes` picks the right width per viewport/DPR. Three widths `{320,1024,2048}`
+  × two formats **AVIF with JPEG fallback** — covers virtually all viewport/DPR
+  combinations while roughly halving storage and bake time vs a 4×3 matrix.
+  (WebP buys little between AVIF and JPEG in 2026; add widths/formats only if a
+  real gap shows.)
 - **LQIP/blur-up:** inline `lqip` (blurhash or tiny base64) shown instantly,
   swapped on load — image-first feel (`R-X1`).
-- **Lazy loading (`R-A7`):** native `loading="lazy"` plus an `IntersectionObserver`
-  to mount/unmount far-offscreen photo groups, so a ~300-photo inner-layer page
-  stays light. The block list is rendered with windowing for very long trips.
+- **Lazy loading (`R-A7`):** native `loading="lazy"` + `srcset` + LQIP keeps a
+  ~300-photo inner-layer page light on its own — no virtualization in v1. We
+  deliberately **avoid windowing / mount-unmount of offscreen groups**: it fights
+  the two hardest features here — scroll **anchoring** (`R-L9`) and **FLIP**
+  (`R-L10`) both need stable, measurable nodes (`getBoundingClientRect`), which
+  unmounted nodes don't provide — and virtualizing a mixed-height magazine layout
+  is notoriously fiddly. Revisit virtualization only if a real 300-photo page
+  measures slow.
 - **Caching:** immutable, content-hashed derivative URLs → long-lived cache
   headers; HTML pages cached per session-class (public pages are CDN-cacheable;
   unlocked/owner responses are `private`/`no-store`).
@@ -572,7 +583,7 @@ folder structure; an `export` command can emit a fully static public snapshot
   compare; `/unlock` rate-limited.
 - Private originals/derivatives/LQIP served only via session-checked routes —
   no guessable public path (§6).
-- Owner auth via passkey/WebAuthn (preferred) or password + secure session.
+- Owner auth via hashed password (argon2/bcrypt) + secure session; passkey/WebAuthn is a later upgrade, not v1.
 - Markdown in text blocks sanitized to prevent stored XSS.
 - Cookies: httpOnly, Secure, SameSite=Lax; CSRF protection on editor mutations.
 - Uploads validated (type/size), processed off the request path, never executed.
@@ -598,10 +609,12 @@ folder structure; an `export` command can emit a fully static public snapshot
 
 **Milestone 1 — Must-have v1 core**
 Data model + SQLite; upload pipeline with EXIF/GPS/rating extraction + offline
-geocode (`R-W*`); trip page with sections, photo/text/map blocks (`R-A*`, `R-C*`);
-the **layer engine** with anchoring + FLIP + persistence (`R-L*`); privacy via
-query-time filtering + share-token unlock (§4/§6); world + country index with
-baked maps and pin overlay (`R-I*`); lightbox (`R-C7`–`R-C11`).
+**country** geocode (`R-W*`); trip page with **flat sections**, photo/text/map
+blocks (`R-A*`, `R-C*`); the **layer engine** with anchoring + FLIP + persistence
+(`R-L*`); privacy via query-time filtering + share-token unlock (§4/§6); world +
+country index with baked maps and pin overlay (`R-I*`); lightbox (`R-C7`–`R-C11`).
+Performance via native lazy + LQIP only (no virtualization). Owner auth via
+password.
 
 **Milestone 2 — Should-have**
 Baked routes + shooting heatmap (`R-C4`); collapsible-section polish + jump-to;
@@ -612,6 +625,11 @@ rotation UI.
 Orthogonal "views" axis; trusted-viewer private notes; timeline resurfacing;
 search; multi-language captions. (Schema leaves room: `min_layer_order` is one
 axis; a future `view` axis is additive.)
+
+**Deferred-by-simplification (pull in only when justified):** nested sub-sections
+(`section.parent_id`); region/city geocoding (+GeoNames); passkey/WebAuthn auth;
+extra derivative widths/formats; trip-page virtualization. Each has a seam left in
+the design so it's additive, not a rewrite.
 
 ---
 
