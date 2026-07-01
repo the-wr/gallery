@@ -1,0 +1,11 @@
+node_modules/
+/build
+/.svelte-kit
+/package
+.env
+.env.*
+!.env.example
+vite.config.ts.timestamp-*
+
+# local data: SQLite db + uploaded/derived assets (never committed)
+/data/

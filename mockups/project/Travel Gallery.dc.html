@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:#efeae0;font-family:'Hanken Grotesk',system-ui,sans-serif;color:#1b1916}
+@keyframes tgfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes tgright{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes tgup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes tglb{from{opacity:0}to{opacity:1}}
+::selection{background:#b25c3e;color:#fff}
+button{font-family:inherit;cursor:pointer}
+.tg-tile{transition:transform .3s ease}
+.tg-tile:hover{transform:translateY(-2px)}
+.tg-cover{transition:border-color .3s ease,box-shadow .3s ease}
+.tg-tile:hover .tg-cover{border-color:#bdb39d;box-shadow:0 10px 20px -16px rgba(40,34,24,.45)}
+</style>
+</helmet>
+
+<div style="min-height:100vh">
+
+<!-- ===== FAMILY-LINK CHIP ===== -->
+<sc-if value="{{ unlocked }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;top:52px;right:26px;z-index:60">
+    <button onClick="{{ lock }}" style="display:flex;align-items:center;gap:7px;background:#1b1916;border:none;color:#f4f1ea;font-size:12px;padding:7px 13px;border-radius:20px;box-shadow:0 8px 20px -10px rgba(40,34,24,.5)">
+      <span style="width:6px;height:6px;border-radius:50%;background:#7bbf8f;display:inline-block"></span>Private layers unlocked
+    </button>
+  </div>
+</sc-if>
+
+<!-- ===== WORLD ===== -->
+<sc-if value="{{ isWorld }}" hint-placeholder-val="{{ true }}">
+<main style="max-width:1180px;margin:0 auto;padding:46px 26px 120px">
+  <div style="margin-bottom:30px">
+    <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b25c3e;margin-bottom:12px">The front door</div>
+    <h1 style="font-family:'Spectral',serif;font-weight:500;font-size:clamp(34px,5vw,58px);line-height:1.04;letter-spacing:-.01em;margin:0;white-space:nowrap" data-comment-anchor="bec8ed9b84-h1">Where I&#8217;ve pointed a camera.</h1>
+  </div>
+  <!-- map -->
+  <div style="position:relative;width:100%;aspect-ratio:21/9;border-radius:14px;border:1px solid #ddd6c6;background:#e7e1d3;background-image:repeating-linear-gradient(135deg,#e1dac9 0 13px,#e9e3d5 13px 26px);margin-bottom:14px">
+    <div style="position:absolute;left:16px;bottom:13px;font-family:'Spline Sans Mono',monospace;font-size:10.5px;letter-spacing:.04em;color:#9a917f;background:rgba(244,241,234,.7);padding:5px 9px;border-radius:6px">frozen world map &#183; baked image &#183; clickable pin overlay</div>
+    <sc-for list="{{ worldPins }}" as="pin" hint-placeholder-count="8">
+      <div style="{{ pin.wrap }}">
+        <button data-pin="{{ pin.id }}" data-nav="{{ pin.nav }}" onMouseEnter="{{ onPinEnter }}" onMouseLeave="{{ onPinLeave }}" onClick="{{ onNav }}" style="{{ pin.dot }}" style-hover="transform:scale(1.14);transform-origin:center;background:#b25c3e">
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;font-weight:500;color:#fff">{{ pin.count }}</span>
+        </button>
+        <sc-if value="{{ pin.hovered }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:178px;background:#1b1916;color:#f4f1ea;border-radius:10px;overflow:hidden;box-shadow:0 16px 30px -12px rgba(0,0,0,.5);z-index:40;pointer-events:none">
+            <div style="height:84px;background:#3a352d;background-image:repeating-linear-gradient(135deg,#34302a 0 10px,#3a352d 10px 20px);display:grid;place-items:center"><span style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:#9a917f;padding:0 10px;text-align:center">{{ pin.thumb }}</span></div>
+            <div style="padding:9px 11px"><div style="font-family:'Spectral',serif;font-size:15px">{{ pin.name }}</div><div style="font-size:11.5px;color:#b8b0a2;margin-top:1px">{{ pin.count }} albums &#183; {{ pin.years }}</div></div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-bottom:34px"></div>
+
+  <!-- catalogue header + granularity toggle -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+    <div>
+      <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:26px;margin:0">The catalogue</h2>
+      <p style="font-size:13px;color:#6b6358;margin:4px 0 0">{{ catSub }}</p>
+    </div>
+    <div style="display:inline-flex;background:#e7e1d3;border:1px solid #ddd6c6;border-radius:22px;padding:3px">
+      <button data-gran="countries" onClick="{{ setGran }}" style="{{ granCountriesStyle }}">Countries</button>
+      <button data-gran="trips" onClick="{{ setGran }}" style="{{ granTripsStyle }}">Trips</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:22px 20px">
+    <sc-for list="{{ tiles }}" as="tile" hint-placeholder-count="9">
+      <button data-nav="{{ tile.nav }}" onClick="{{ onNav }}" class="tg-tile" style="text-align:left;background:none;border:none;padding:0;display:flex;flex-direction:column;gap:11px;cursor:pointer">
+        <div class="tg-cover" style="position:relative;width:100%;aspect-ratio:3/2;border-radius:9px;overflow:hidden;border:1px solid #ddd6c6;background:#e7e1d3;background-image:repeating-linear-gradient(135deg,#e1dac9 0 11px,#e9e3d5 11px 22px);display:grid;place-items:center">
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;line-height:1.5;color:#9a917f;text-align:center;padding:14px">{{ tile.cover }}</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
+          <span style="font-family:'Spectral',serif;font-size:16.5px;line-height:1.25;letter-spacing:-.005em">{{ tile.primary }}</span>
+          <span style="color:#c7c0ae;font-size:12px">&#183;</span>
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8c8475;line-height:1.6">{{ tile.secondary }}</span>
+        </div>
+      </button>
+    </sc-for>
+  </div>
+</main>
+</sc-if>
+
+<!-- ===== COUNTRY ===== -->
+<sc-if value="{{ isCountry }}" hint-placeholder-val="{{ false }}">
+<main style="max-width:1180px;margin:0 auto;padding:40px 26px 120px">
+  <div style="margin-bottom:26px">
+    <button onClick="{{ goUp }}" style="display:inline-flex;align-items:center;gap:7px;background:none;border:none;padding:0;font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b25c3e;margin-bottom:10px;cursor:pointer" style-hover="opacity:.6"><span style="font-size:14px">&#8592;</span><span>{{ upLabel }}</span></button>
+    <h1 style="font-family:'Spectral',serif;font-weight:500;font-size:clamp(32px,4.6vw,52px);line-height:1.03;margin:0 0 8px">{{ country.name }}</h1>
+    <p style="font-size:14px;color:#6b6358;margin:0">{{ country.sub }}</p>
+  </div>
+  <div style="position:relative;width:100%;aspect-ratio:21/9;border-radius:14px;border:1px solid #ddd6c6;background:#e7e1d3;background-image:repeating-linear-gradient(135deg,#e1dac9 0 13px,#e9e3d5 13px 26px);margin-bottom:30px">
+    <div style="position:absolute;left:16px;bottom:13px;font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#9a917f;background:rgba(244,241,234,.7);padding:5px 9px;border-radius:6px">frozen {{ country.name }} map &#183; one pin per trip</div>
+    <sc-for list="{{ countryPins }}" as="pin" hint-placeholder-count="5">
+      <div style="{{ pin.wrap }}">
+        <button data-pin="{{ pin.id }}" data-nav="{{ pin.nav }}" onMouseEnter="{{ onPinEnter }}" onMouseLeave="{{ onPinLeave }}" onClick="{{ onNav }}" style="{{ pin.dot }}" style-hover="transform:scale(1.14);transform-origin:center;background:#b25c3e"></button>
+        <sc-if value="{{ pin.hovered }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;bottom:26px;left:50%;transform:translateX(-50%);width:178px;background:#1b1916;color:#f4f1ea;border-radius:10px;overflow:hidden;box-shadow:0 16px 30px -12px rgba(0,0,0,.5);z-index:40;pointer-events:none">
+            <div style="height:84px;background:#3a352d;background-image:repeating-linear-gradient(135deg,#34302a 0 10px,#3a352d 10px 20px);display:grid;place-items:center"><span style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:#9a917f;padding:0 10px;text-align:center">{{ pin.thumb }}</span></div>
+            <div style="padding:9px 11px"><div style="font-family:'Spectral',serif;font-size:15px">{{ pin.name }}</div><div style="font-size:11.5px;color:#b8b0a2;margin-top:1px">{{ pin.years }}</div></div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:24px;margin:0 0 20px">{{ country.tripsLabel }}</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:22px 20px">
+    <sc-for list="{{ countryTiles }}" as="tile" hint-placeholder-count="6">
+      <button data-nav="{{ tile.nav }}" onClick="{{ onNav }}" class="tg-tile" style="text-align:left;background:none;border:none;padding:0;display:flex;flex-direction:column;gap:11px;cursor:pointer">
+        <div class="tg-cover" style="position:relative;width:100%;aspect-ratio:3/2;border-radius:9px;overflow:hidden;border:1px solid #ddd6c6;background:#e7e1d3;background-image:repeating-linear-gradient(135deg,#e1dac9 0 11px,#e9e3d5 11px 22px);display:grid;place-items:center">
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;line-height:1.5;color:#9a917f;text-align:center;padding:14px">{{ tile.cover }}</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
+          <span style="font-family:'Spectral',serif;font-size:16.5px;line-height:1.25">{{ tile.primary }}</span>
+          <span style="color:#c7c0ae;font-size:12px">&#183;</span>
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8c8475;line-height:1.6">{{ tile.secondary }}</span>
+        </div>
+      </button>
+    </sc-for>
+  </div>
+</main>
+</sc-if>
+
+<!-- ===== TRIP ===== -->
+<sc-if value="{{ isTrip }}" hint-placeholder-val="{{ false }}">
+<article style="max-width:1180px;margin:0 auto;padding:40px 26px 160px">
+  <button onClick="{{ goUp }}" style="display:inline-flex;align-items:center;gap:7px;background:none;border:none;padding:0;font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b25c3e;margin-bottom:12px;cursor:pointer" style-hover="opacity:.6"><span style="font-size:14px">&#8592;</span><span>{{ upLabel }}</span></button>
+  <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8c8475;margin-bottom:14px">{{ trip.dates }} &#183; {{ trip.country }}</div>
+  <h1 style="font-family:'Spectral',serif;font-weight:500;font-size:clamp(36px,5.6vw,62px);line-height:1.02;letter-spacing:-.015em;margin:0 0 16px;max-width:16ch">{{ trip.title }}</h1>
+  <p style="font-size:17px;line-height:1.62;color:#3a352d;max-width:60ch;margin:0 0 26px;font-family:'Spectral',serif">{{ trip.intro }}</p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px">
+    <sc-for list="{{ trip.jumps }}" as="j" hint-placeholder-count="3">
+      <button data-sid="{{ j.id }}" onClick="{{ onJump }}" style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#6b6358;background:#e9e3d6;border:none;padding:6px 11px;border-radius:14px" style-hover="background:#1b1916;color:#f4f1ea">{{ j.title }}</button>
+    </sc-for>
+  </div>
+
+  <!-- switcher DOCK (large, in-flow) -->
+  <div data-switcher-dock style="margin-bottom:34px">
+    <div style="display:inline-flex;flex-wrap:wrap;gap:4px;background:#e7e1d3;border:1px solid #ddd6c6;border-radius:14px;padding:5px">
+      <sc-for list="{{ layers }}" as="L" hint-placeholder-count="3">
+        <button onClick="{{ L.onClick }}" style="{{ L.dockStyle }}">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ L.icon }}"></path></svg>
+          <span style="font-size:13.5px;font-weight:500">{{ L.label }}</span>
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;opacity:.62">{{ L.count }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- sections -->
+  <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="2">
+    <sc-if value="{{ sec.visible }}" hint-placeholder-val="{{ true }}">
+      <section data-section-id="{{ sec.id }}" style="margin-bottom:8px;scroll-margin-top:72px">
+        <div style="display:flex;align-items:baseline;gap:12px;padding:18px 0 16px;border-top:1px solid #e2dccd">
+          <button onClick="{{ sec.toggle }}" style="display:flex;align-items:baseline;gap:12px;background:none;border:none;padding:0;cursor:pointer;text-align:left" style-hover="opacity:.62">
+            <span style="{{ sec.chevStyle }}">&#8250;</span>
+            <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:27px;letter-spacing:-.01em;margin:0">{{ sec.title }}</h2>
+          </button>
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#9a917f">{{ sec.dates }}</span>
+        </div>
+        <div style="{{ sec.contentStyle }}">
+          <sc-for list="{{ sec.blocks }}" as="blk" hint-placeholder-count="2">
+            <sc-if value="{{ blk.isText }}" hint-placeholder-val="{{ false }}">
+              <div data-block-id="{{ blk.id }}" style="max-width:62ch;margin:0 0 26px"><p style="font-family:'Spectral',serif;font-size:16px;line-height:1.7;color:#3a352d;margin:0">{{ blk.text }}</p></div>
+            </sc-if>
+            <sc-if value="{{ blk.isHero }}" hint-placeholder-val="{{ false }}">
+              <figure data-block-id="{{ blk.id }}" style="{{ blk.wrapStyle }}">
+                <div data-block="{{ blk.id }}" data-idx="{{ blk.photo.visIdx }}" onClick="{{ onPhotoClick }}" style="position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;cursor:zoom-in;border-radius:6px;background:#e7e1d3;background-image:repeating-linear-gradient(135deg,#e1dac9 0 12px,#e9e3d5 12px 24px);border:1px solid #ddd6c6;display:grid;place-items:center" style-hover="filter:brightness(.965)">
+                  <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;line-height:1.5;letter-spacing:.02em;color:#9a917f;text-align:center;padding:16px;max-width:78%">{{ blk.photo.label }}</span>
+                </div>
+                <sc-if value="{{ blk.photo.hasCaption }}" hint-placeholder-val="{{ false }}"><figcaption style="font-size:12.5px;color:#8c8475;margin:9px 2px 0;font-style:italic;font-family:'Spectral',serif">{{ blk.photo.caption }}</figcaption></sc-if>
+              </figure>
+            </sc-if>
+            <sc-if value="{{ blk.isRow }}" hint-placeholder-val="{{ false }}">
+              <div data-block-id="{{ blk.id }}" style="{{ blk.wrapStyle }}">
+                <sc-for list="{{ blk.cells }}" as="cell" hint-placeholder-count="3">
+                  <div style="{{ cell.style }}">
+                    <div data-block="{{ blk.id }}" data-idx="{{ cell.visIdx }}" onClick="{{ onPhotoClick }}" style="position:relative;width:100%;height:100%;overflow:hidden;cursor:zoom-in;border-radius:6px;background:#e7e1d3;background-image:repeating-linear-gradient(135deg,#e1dac9 0 11px,#e9e3d5 11px 22px);border:1px solid #ddd6c6;display:grid;place-items:center" style-hover="filter:brightness(.965)">
+                      <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;line-height:1.5;color:#9a917f;text-align:center;padding:12px">{{ cell.label }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ blk.isMap }}" hint-placeholder-val="{{ false }}">
+              <figure data-block-id="{{ blk.id }}" style="margin:0 0 30px">
+                <div style="position:relative;width:100%;aspect-ratio:2/1;overflow:hidden;border-radius:8px;background:#e4ded0;background-image:repeating-linear-gradient(45deg,#ded7c6 0 14px,#e6e0d2 14px 28px);border:1px solid #ddd6c6;display:grid;place-items:center">
+                  <div style="text-align:center"><div style="font-family:'Spectral',serif;font-size:18px;color:#6b6358">{{ blk.label }}</div><div style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#9a917f;margin-top:6px">{{ blk.note }}</div></div>
+                </div>
+              </figure>
+            </sc-if>
+          </sc-for>
+        </div>
+      </section>
+    </sc-if>
+  </sc-for>
+
+  <div style="border-top:1px solid #e2dccd;margin-top:24px;padding-top:22px;font-family:'Spline Sans Mono',monospace;font-size:11px;color:#9a917f">End of trip &#183; <button onClick="{{ goUp }}" style="background:none;border:none;color:#b25c3e;font-family:inherit;font-size:11px;padding:0;text-decoration:underline">back to {{ trip.country }}</button></div>
+</article>
+
+<!-- FLOATING SWITCHERS -->
+<sc-if value="{{ floatA }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;top:26px;right:26px;z-index:50;display:flex;flex-direction:column;align-items:flex-end;gap:6px;animation:tgfade .25s ease" data-comment-anchor="b7b8156626-div">
+    <div style="display:flex;gap:4px;background:rgba(27,25,22,.92);backdrop-filter:blur(8px);border-radius:13px;padding:5px;box-shadow:0 12px 30px -12px rgba(0,0,0,.5)">
+      <sc-for list="{{ layers }}" as="L" hint-placeholder-count="3">
+        <button onClick="{{ L.onClick }}" title="{{ L.label }}" style="{{ L.floatAStyle }}">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ L.icon }}"></path></svg>
+        </button>
+      </sc-for>
+    </div>
+    <div style="font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:.1em;color:#9a917f;text-transform:uppercase;background:rgba(244,241,234,.85);padding:2px 6px;border-radius:5px">layers</div>
+  </div>
+</sc-if>
+<sc-if value="{{ floatB }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;top:50%;right:18px;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:5px;background:rgba(27,25,22,.92);backdrop-filter:blur(8px);border-radius:15px;padding:6px;box-shadow:0 12px 30px -12px rgba(0,0,0,.5);animation:tgright .25s ease">
+    <sc-for list="{{ layers }}" as="L" hint-placeholder-count="3">
+      <button onClick="{{ L.onClick }}" title="{{ L.label }}" style="{{ L.floatBStyle }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ L.icon }}"></path></svg>
+        <span style="font-family:'Spline Sans Mono',monospace;font-size:9px">{{ L.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+</sc-if>
+<sc-if value="{{ floatC }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:4px;background:rgba(27,25,22,.93);backdrop-filter:blur(10px);border-radius:16px;padding:6px;box-shadow:0 16px 36px -14px rgba(0,0,0,.55);animation:tgup .25s ease">
+    <sc-for list="{{ layers }}" as="L" hint-placeholder-count="3">
+      <button onClick="{{ L.onClick }}" style="{{ L.floatCStyle }}">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ L.icon }}"></path></svg>
+        <span style="font-size:13px;font-weight:500">{{ L.label }}</span>
+        <span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;opacity:.6">{{ L.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+</sc-if>
+</sc-if>
+
+<!-- ===== LIGHTBOX ===== -->
+<sc-if value="{{ lightbox }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ lbClose }}" style="position:fixed;inset:0;z-index:80;background:rgba(20,18,15,.95);display:flex;flex-direction:column;animation:tglb .2s ease">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;color:#cfc8bb">
+      <span style="font-family:'Spline Sans Mono',monospace;font-size:12px">{{ lightbox.counter }}</span>
+      <button onClick="{{ lbClose }}" style="background:none;border:none;color:#cfc8bb;font-size:22px;line-height:1;padding:6px">&#215;</button>
+    </div>
+    <div onClick="{{ lbStop }}" style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:0 14px">
+      <button onClick="{{ lbPrev }}" style="position:absolute;left:18px;top:50%;transform:translateY(-50%);z-index:2;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:20px">&#8249;</button>
+      <div onClick="{{ lbToggleZoom }}" onWheel="{{ lbWheel }}" style="{{ lightbox.frameStyle }}">
+        <div style="position:absolute;inset:0;background:#3a352d;background-image:repeating-linear-gradient(135deg,#34302a 0 16px,#3d382f 16px 32px);display:grid;place-items:center;border-radius:4px">
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:13px;line-height:1.6;color:#9a917f;text-align:center;padding:24px;max-width:70%">{{ lightbox.label }}</span>
+        </div>
+      </div>
+      <button onClick="{{ lbNext }}" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);z-index:2;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:20px">&#8250;</button>
+    </div>
+    <div onClick="{{ lbStop }}" style="min-height:54px;display:flex;align-items:center;justify-content:center;padding:12px 22px 22px">
+      <sc-if value="{{ lightbox.hasCaption }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Spectral',serif;font-style:italic;font-size:15px;color:#cfc8bb;text-align:center">{{ lightbox.caption }}</span></sc-if>
+      <sc-if value="{{ lightbox.noCaption }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#6b6358">{{ lightbox.hint }}</span></sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ===== PROTOTYPE CONTROL ===== -->
+<sc-if value="{{ isTrip }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;bottom:22px;left:22px;z-index:55;background:#fbfaf6;border:1px solid #e2dccd;border-radius:13px;box-shadow:0 14px 34px -16px rgba(40,34,24,.4)">
+    <sc-if value="{{ ctrlOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:13px 14px;width:236px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#b25c3e">Prototype &#183; switcher UX</span>
+          <button onClick="{{ toggleCtrl }}" style="background:none;border:none;color:#9a917f;font-size:15px;line-height:1;padding:0">&#8211;</button>
+        </div>
+        <div style="display:flex;gap:5px;margin-bottom:9px">
+          <button data-sw="A" onClick="{{ setSwitcherStyle }}" style="{{ swAStyle }}">A</button>
+          <button data-sw="B" onClick="{{ setSwitcherStyle }}" style="{{ swBStyle }}">B</button>
+          <button data-sw="C" onClick="{{ setSwitcherStyle }}" style="{{ swCStyle }}">C</button>
+        </div>
+        <div style="font-size:11.5px;line-height:1.5;color:#6b6358">{{ swDesc }}</div>
+        <div style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:#9a917f;margin-top:9px;border-top:1px solid #eee5d6;padding-top:8px">Scroll down to float &#183; back to top to re-dock</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ ctrlClosed }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ toggleCtrl }}" style="background:none;border:none;padding:11px 14px;font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b25c3e">Switcher: {{ switcherStyle }} &#9650;</button>
+    </sc-if>
+  </div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.LAYERS=[
+      {key:'postcards',label:'Postcards',icon:'M7 7h10v10H7z'},
+      {key:'highlights',label:'Highlights',icon:'M5 9h7v7h-7zM11 6h7v7h-7z'},
+      {key:'chronology',label:'Chronology',icon:'M4 12h16M8 9v6M12 9v6M16 9v6'},
+      {key:'faces',label:'Faces',icon:'M12 5a7 7 0 110 14 7 7 0 010-14M9.6 11v.5M14.4 11v.5M9.4 14.4c1.7 1.5 3.9 1.5 5.6 0',private:true}
+    ];
+    this.SWDESC={A:'Floats to a compact icon pill in the top-right corner.',B:'Floats to a vertical rail on the right edge, with counts.',C:'Floats to a labelled bar centred along the bottom.'};
+    this.buildData();
+    const g=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}};
+    let layer=g('tg_layer',1);
+    let unlocked=g('tg_unlock',false);
+    try{if(new URLSearchParams(location.search).get('s'))unlocked=true;}catch(e){}
+    try{const lp=new URLSearchParams(location.search).get('l');if(lp){const i=this.LAYERS.findIndex(L=>L.key===lp);if(i>=0)layer=i;}}catch(e){}
+    this.state={
+      view:'world',countryId:null,tripId:null,
+      layer:layer,unlocked:unlocked,
+      granularity:g('tg_gran','countries'),switcherStyle:g('tg_sw','A'),
+      floating:false,collapsed:{},hoveredPin:null,lightbox:null,
+      unlockOpen:false,ctrlOpen:true
+    };
+    this.scrollAtOpen=0;this._anchor=null;this._ticking=false;
+    this.onScroll=this.onScroll.bind(this);this.onKey=this.onKey.bind(this);
+  }
+  componentDidMount(){window.addEventListener('scroll',this.onScroll,{passive:true});window.addEventListener('keydown',this.onKey);}
+  componentWillUnmount(){window.removeEventListener('scroll',this.onScroll);window.removeEventListener('keydown',this.onKey);}
+  componentDidUpdate(){
+    if(this._anchor){
+      const a=this._anchor;this._anchor=null;
+      let el=document.querySelector('[data-block-id="'+a.id+'"]');
+      if(!el||el.offsetParent===null){
+        const order=this.flatOrder();let idx=order.indexOf(a.id);
+        for(let d=1;d<order.length;d++){
+          const c1=order[idx+d],c2=order[idx-d];
+          let e=c1&&document.querySelector('[data-block-id="'+c1+'"]');
+          if(e&&e.offsetParent!==null){el=e;break;}
+          e=c2&&document.querySelector('[data-block-id="'+c2+'"]');
+          if(e&&e.offsetParent!==null){el=e;break;}
+        }
+      }
+      if(el){const now=el.getBoundingClientRect().top;window.scrollBy(0,now-a.top);}
+    }
+  }
+  save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+  // ---------- DATA ----------
+  buildData(){
+    const P=(label,star,caption)=>({label,star,caption});
+    const F=(label,caption)=>({label,face:true,caption});
+    this.countries=[
+      {id:'jp',name:'Japan',x:84,y:43,years:'2016\u20132024'},
+      {id:'is',name:'Iceland',x:42,y:24,years:'2019'},
+      {id:'it',name:'Italy',x:51,y:42,years:'2017\u20132023'},
+      {id:'ma',name:'Morocco',x:46,y:49,years:'2018'},
+      {id:'no',name:'Norway',x:52,y:23,years:'2021'},
+      {id:'vn',name:'Vietnam',x:78,y:54,years:'2019'},
+      {id:'pe',name:'Peru',x:28,y:66,years:'2022'},
+      {id:'pt',name:'Portugal',x:43,y:42,years:'2023'},
+      {id:'gr',name:'Greece',x:56,y:44,years:'2022'},
+      {id:'th',name:'Thailand',x:76,y:55,years:'2020'},
+      {id:'nz',name:'New Zealand',x:94,y:84,years:'2018\u20132023'}
+    ];
+    this.titles={
+      jp:['Kyoto in Autumn','Tokyo Nights','Hokkaido in Snow','Setouchi Islands','Koyasan Pilgrimage'],
+      is:['The Ring Road','Highland Summer','South Coast Falls','Westfjords Detour'],
+      it:['Cinque Terre Slow','Roman Stones','Dolomites Traverse','Amalfi Coast Drive','Sicily End to End','Venice in Fog','Tuscan Backroads','Lake Como','Puglia Whitewash'],
+      ma:['Atlas & Sahara','Fes Medina','Chefchaouen Blue','Coastal Essaouira','Desert Nights','Marrakech Souks'],
+      no:['Lofoten Lights','Fjord Country','Senja Detour','Bergen Rain','Arctic Road'],
+      vn:['Ha Long Bay','Mekong Delta','Sapa Terraces','Hoi An Lanterns','Hanoi Old Quarter','Da Lat Highlands','Phong Nha Caves'],
+      pe:['Andes Traverse','Cusco & Beyond','Sacred Valley'],
+      pt:['Lisbon & the Coast'],
+      gr:['Cyclades by Ferry'],
+      th:['Bangkok & the North'],
+      nz:['Southern Alps','West Coast Wild','Fiordland Sounds','Coromandel Days']
+    };
+    this.themes={
+      jp:['Temple gate','Garden detail','Lantern-lit lane','Mountain shrine'],
+      is:['Glacier lagoon','Black-sand beach','Waterfall in mist','Highland road'],
+      it:['Hilltown rooftops','Harbour at dusk','Cathedral facade','Coast road'],
+      ma:['Medina alley','Desert dune','Riad courtyard','Mountain pass'],
+      no:['Fjord wall','Fishing village','Aurora over water','Switchback road'],
+      vn:['Limestone bay','River market','Rice terrace','Old-quarter street'],
+      pe:['Andean ridge','Stone ruins','Market colour','High pass'],
+      pt:['Tiled facade','Atlantic cliff','Tram in Alfama','Coastal road'],
+      gr:['Whitewashed lane','Aegean blue','Harbour at dusk','Island terrace'],
+      th:['Temple spire','Street market','Jungle river','Night-market glow'],
+      nz:['Alpine lake','Coast cliff','Glowworm valley','Mountain road']
+    };
+    // dates per trip (rough)
+    this.dateOf=(cid,i)=>{const base={jp:['Nov 2022','Mar 2024','Feb 2019','May 2021','Apr 2018'],is:['Jul 2019','Aug 2019','Jul 2019','Jun 2019'],it:['Sep 2019','Jun 2017','Sep 2021','Jun 2018','May 2023','Nov 2020','Sep 2019','Jul 2022','Jun 2023'],ma:['Mar 2018','Mar 2018','Apr 2018','Apr 2018','Mar 2018','Apr 2018'],no:['Sep 2021','Aug 2021','Sep 2021','Aug 2021','Sep 2021'],vn:['Feb 2019','Feb 2019','Mar 2019','Mar 2019','Feb 2019','Mar 2019','Mar 2019'],pe:['Aug 2022','Aug 2022','Sep 2022'],pt:['May 2023'],gr:['Jun 2022'],th:['Jan 2020'],nz:['Jan 2018','Dec 2019','Jan 2023','Feb 2023']};return (base[cid]&&base[cid][i])||(this.countries.find(c=>c.id===cid).years);};
+
+    // authored showcase: Kyoto
+    const kyoto={id:'jp-0',countryId:'jp',title:'Kyoto in Autumn',dates:'Nov 2022',cover:'Maple-framed pagoda at blue hour',
+      intro:'Eight slow days as the maples turned. We walked more than we planned and photographed more than that \u2014 here is the trip at whatever depth you want it.',
+      sections:[
+        {title:'Arrival in Higashiyama',dates:'12\u201313 Nov',blocks:[
+          {type:'text',text:'We landed to low grey light and dropped our bags in a machiya off Yasaka-d\u014dri. The first evening is always just walking \u2014 letting the place set the pace before the camera comes out.'},
+          {type:'hero',photo:P('Y\u014dh\u014dkan-ji pagoda above the rooftops, lanterns just lit, blue hour',5,'H\u014dkan-ji from Yasaka-d\u014dri \u2014 the postcard, earned by waiting for the light')},
+          {type:'row',photos:[P('Wet cobbles of Ninen-zaka, shopfronts closing',4),P('Indigo noren curtains, hand on the door',3),P('First red maple over a grey tiled roof',4,'First real colour of the trip')]},
+          {type:'map',label:'Higashiyama, on foot',hasRoute:true}
+        ]},
+        {title:'Temples & Gardens',blocks:[
+          {type:'text',text:'Mornings belonged to the gardens \u2014 in before the gates filled, out before the tour groups. The light does the work; you just have to be standing in the right place at 7am.'},
+          {type:'row',photos:[P('Raked gravel meeting a wall of moss',4),P('Tofuku-ji bridge over a sea of maples',5,'The view everyone comes for \u2014 ours at seven in the morning'),P('Vermilion gate, paint cracking',3),P('A monk crossing an empty courtyard',3)]},
+          {type:'hero',photo:P('Full mirror of red and gold in a still pond, framed by a round window',5,'Genk\u014d-an \u2014 the window of enlightenment')}
+        ]},
+        {title:'Arashiyama',dates:'15 Nov',blocks:[
+          {type:'hero',photo:P('Bamboo grove, light shafts cutting through the canopy',4)},
+          {type:'row',photos:[P('Togetsuky\u014d bridge, river and autumn hills behind',4),P('Tea-house lantern against dark timber',3),P('Hillside maples seen from the river boat',3,'Shot one-handed from the boat')]},
+          {type:'map',label:'The Arashiyama loop',hasRoute:true,hasHeat:true}
+        ]},
+        {title:'Evenings & Faces',blocks:[
+          {type:'text',text:'And then the parts that are really just for us \u2014 the counter seats, the second beer, the friends who flew in for the back half.'},
+          {type:'row',photos:[P('Izakaya counter, steam rising into warm light',3),F('The two of us at the counter, two beers in'),F('M. laughing under the red lanterns')]},
+          {type:'hero',photo:F('Last night \u2014 the whole group on the bridge, someone\u2019s arm in the frame')}
+        ]}
+      ]};
+
+    // build all trips
+    this.trips={};this.tripsByCountry={};
+    this.countries.forEach(c=>{
+      c.count=this.titles[c.id].length;
+      this.tripsByCountry[c.id]=[];
+      this.titles[c.id].forEach((title,i)=>{
+        let t;
+        if(c.id==='jp'&&i===0){t=kyoto;}
+        else{t=this.genTrip(c,i,title,P,F);}
+        t.id=c.id+'-'+i;t.countryId=c.id;t.coverIdx=i;
+        this.normalize(t);
+        this.trips[t.id]=t;this.tripsByCountry[c.id].push(t);
+      });
+    });
+  }
+  genTrip(c,i,title,P,F){
+    const th=this.themes[c.id];
+    return {title:title,dates:this.dateOf(c.id,i),cover:th[0]+', wide',
+      intro:'A short run through '+c.name+' \u2014 '+th[1].toLowerCase()+', '+th[2].toLowerCase()+', and the long roads between.',
+      sections:[
+        {title:th[0],blocks:[
+          {type:'text',text:'Notes from the first days. The kind of place that rewards getting up early and staying out late.'},
+          {type:'hero',photo:P(th[0]+', golden light',5,th[0])},
+          {type:'row',photos:[P(th[1]+', close detail',4),P(th[2]+', wide',3),P(th[1]+', in passing',3)]},
+          {type:'map',label:c.name+' route',hasRoute:true}
+        ]},
+        {title:th[3],blocks:[
+          {type:'row',photos:[P(th[3]+', early morning',4),P(th[2]+', last light',3),F('Us on the road \u2014 '+c.name)]},
+          {type:'hero',photo:P(th[2]+', the big view',5,th[2])}
+        ]}
+      ]};
+  }
+  normalize(t){
+    t.sections.forEach((s,si)=>{
+      s.id=t.id+'-s'+si;
+      s.blocks.forEach((b,bi)=>{
+        b.id=s.id+'-b'+bi;
+        if(b.type==='hero')b.photos=[b.photo];
+        if(b.photos)b.photos.forEach((p,pi)=>{p.id=b.id+'-p'+pi;p.minLayer=p.face?3:(p.star===5?0:p.star===4?1:2);p.hasCaption=!!p.caption;});
+      });
+    });
+  }
+  flatOrder(){const t=this.trips[this.state.tripId];if(!t)return [];const o=[];t.sections.forEach(s=>s.blocks.forEach(b=>o.push(b.id)));return o;}
+  effLayer(){const s=this.state;return (s.layer===3&&!s.unlocked)?2:s.layer;}
+  photoVisible(p){const s=this.state;return p.minLayer<=this.effLayer()&&(!p.face||s.unlocked);}
+  cumCount(t,li){let n=0;t.sections.forEach(s=>s.blocks.forEach(b=>{if(b.photos)b.photos.forEach(p=>{if(p.minLayer<=li)n++;});}));return n;}
+
+  // ---------- NAV ----------
+  nav(view,countryId,tripId){this.setState({view,countryId,tripId,floating:false,hoveredPin:null,lightbox:null});window.scrollTo(0,0);}
+  onNav=(e)=>{const v=e.currentTarget.dataset.nav;const parts=v.split(':');if(parts[0]==='country')this.nav('country',parts[1],null);else if(parts[0]==='trip')this.nav('trip',parts[1],parts[2]);};
+  onPinEnter=(e)=>{this.setState({hoveredPin:e.currentTarget.dataset.pin});};
+  onPinLeave=()=>{this.setState({hoveredPin:null});};
+  onJump=(e)=>{const id=e.currentTarget.dataset.sid;const el=document.querySelector('[data-section-id="'+id+'"]');if(el){const y=el.getBoundingClientRect().top+window.scrollY-66;window.scrollTo({top:y,behavior:'smooth'});}};
+  setGran=(e)=>{const g=e.currentTarget.dataset.gran;this.setState({granularity:g});this.save('tg_gran',g);};
+  setSwitcherStyle=(e)=>{const v=e.currentTarget.dataset.sw;this.setState({switcherStyle:v});this.save('tg_sw',v);};
+  toggleCtrl=()=>this.setState({ctrlOpen:!this.state.ctrlOpen});
+  openUnlock=()=>this.setState({unlockOpen:true});
+  closeUnlock=()=>this.setState({unlockOpen:false});
+  doUnlock=()=>{this.setState({unlocked:true,unlockOpen:false});this.save('tg_unlock',true);try{const u=new URL(location);u.searchParams.delete('s');history.replaceState({},'',u);}catch(e){}};
+  lock=()=>{this.setState({unlocked:false,layer:this.state.layer===3?2:this.state.layer});this.save('tg_unlock',false);};
+
+  // ---------- LAYER ----------
+  switchLayer(li){
+    if(li===this.state.layer)return;
+    // anchor: visible block nearest top
+    const order=this.flatOrder();let best=null,bestTop=1e9;
+    order.forEach(id=>{const el=document.querySelector('[data-block-id="'+id+'"]');if(el&&el.offsetParent!==null){const top=el.getBoundingClientRect().top;if(top>-40&&top<bestTop){bestTop=top;best=id;}}});
+    if(best)this._anchor={id:best,top:bestTop};
+    this.setState({layer:li});this.save('tg_layer',li);
+    try{const u=new URL(location);u.searchParams.set('l',this.LAYERS[li].key);history.replaceState({},'',u);}catch(e){}
+  }
+
+  // ---------- SCROLL / FLOAT ----------
+  onScroll(){if(this.state.view!=='trip')return;const dock=document.querySelector('[data-switcher-dock]');if(!dock)return;const f=dock.getBoundingClientRect().bottom<64;if(f!==this.state.floating)this.setState({floating:f});}
+  onKey(e){const lb=this.state.lightbox;if(lb){if(e.key==='Escape')this.lbClose();else if(e.key==='ArrowRight')this.lbStep(1);else if(e.key==='ArrowLeft')this.lbStep(-1);}}
+
+  // ---------- LIGHTBOX ----------
+  visiblePhotos(blockId){const t=this.trips[this.state.tripId];let blk=null;t.sections.forEach(s=>s.blocks.forEach(b=>{if(b.id===blockId)blk=b;}));if(!blk||!blk.photos)return[];return blk.photos.filter(p=>this.photoVisible(p));}
+  onPhotoClick=(e)=>{const el=e.currentTarget;const bid=el.dataset.block;const idx=parseInt(el.dataset.idx,10);this.scrollAtOpen=window.scrollY;this.setState({lightbox:{blockId:bid,index:idx,zoom:1}});};
+  lbClose=()=>{this.setState({lightbox:null});window.scrollTo(0,this.scrollAtOpen);};
+  lbStop=(e)=>{e.stopPropagation();};
+  lbPrev=(e)=>{if(e)e.stopPropagation();this.lbStep(-1);};
+  lbNext=(e)=>{if(e)e.stopPropagation();this.lbStep(1);};
+  lbStep(dir){const lb=this.state.lightbox;if(!lb)return;const grp=this.visiblePhotos(lb.blockId);const ni=lb.index+dir;
+    if(ni>=0&&ni<grp.length){this.setState({lightbox:{blockId:lb.blockId,index:ni,zoom:1}});return;}
+    // eject to adjacent block
+    const order=this.flatOrder();let pos=order.indexOf(lb.blockId);const tgt=order[pos+dir];
+    this.setState({lightbox:null});
+    if(tgt){const el=document.querySelector('[data-block-id="'+tgt+'"]');if(el){const y=el.getBoundingClientRect().top+window.scrollY-80;window.scrollTo({top:y,behavior:'smooth'});return;}}
+    window.scrollTo(0,this.scrollAtOpen);
+  }
+  lbToggleZoom=(e)=>{e.stopPropagation();this.setState({lightbox:Object.assign({},this.state.lightbox,{zoom:this.state.lightbox.zoom>1?1:2.2})});};
+  lbWheel=(e)=>{const lb=this.state.lightbox;if(!lb)return;let z=lb.zoom-(e.deltaY>0?0.2:-0.2);z=Math.max(1,Math.min(4,z));this.setState({lightbox:Object.assign({},lb,{zoom:z})});};
+
+  // ---------- VIEW MODELS ----------
+  worldVM(){
+    const s=this.state;const hov=s.hoveredPin;
+    const pins=this.countries.map(c=>({id:c.id,name:c.name,count:c.count,years:c.years,nav:'country:'+c.id,
+      thumb:'cover \u00b7 '+this.themes[c.id][0].toLowerCase(),hovered:hov===c.id,
+      wrap:{position:'absolute',left:c.x+'%',top:c.y+'%',transform:'translate(-50%,-50%)',zIndex:hov===c.id?60:2},
+      dot:this.pinDot()}));
+    let tiles,catSub;
+    if(s.granularity==='countries'){
+      catSub=this.countries.length+' countries \u00b7 one tile each';
+      tiles=this.countries.map(c=>({nav:'country:'+c.id,cover:'cover \u00b7 '+this.themes[c.id][0].toLowerCase()+', wide',primary:c.name,secondary:c.years+' \u00b7 '+c.count+' albums'}));
+    }else{
+      const all=[];this.countries.forEach(c=>this.tripsByCountry[c.id].forEach(t=>all.push({c,t})));
+      catSub=all.length+' trips \u00b7 every album, sorted by date';
+      tiles=all.map(({c,t})=>({nav:'trip:'+c.id+':'+t.id,cover:'cover \u00b7 '+t.cover.toLowerCase(),primary:c.name,secondary:t.dates}));
+    }
+    return {worldPins:pins,tiles,catSub,
+      granCountriesStyle:this.granStyle(s.granularity==='countries'),
+      granTripsStyle:this.granStyle(s.granularity==='trips')};
+  }
+  countryVM(){
+    const s=this.state;const c=this.countries.find(x=>x.id===s.countryId);const trips=this.tripsByCountry[s.countryId];const hov=s.hoveredPin;
+    const pins=trips.map((t,i)=>{const ang=(i/Math.max(trips.length,1))*Math.PI*2;const x=50+Math.cos(ang)*30+((i%3)-1)*4;const y=50+Math.sin(ang)*26;
+      return {id:t.id,name:t.title,years:t.dates,nav:'trip:'+c.id+':'+t.id,hovered:hov===t.id,thumb:'cover \u00b7 '+t.cover.toLowerCase(),
+        wrap:{position:'absolute',left:x+'%',top:y+'%',transform:'translate(-50%,-50%)',zIndex:hov===t.id?60:2},dot:this.pinDot()};});
+    const tiles=trips.map(t=>({nav:'trip:'+c.id+':'+t.id,cover:'cover \u00b7 '+t.cover.toLowerCase(),primary:t.title,secondary:t.dates}));
+    return {country:{name:c.name,sub:c.count+' albums \u00b7 '+c.years,tripsLabel:'Trips in '+c.name},countryPins:pins,countryTiles:tiles};
+  }
+  tripVM(){
+    const s=this.state;const t=this.trips[s.tripId];const c=this.countries.find(x=>x.id===t.countryId);
+    const eff=this.effLayer();
+    const layers=this.LAYERS.filter((L,i)=>i<3||s.unlocked).map((L,i)=>({key:L.key,label:L.label,icon:L.icon,count:this.cumCount(t,i),onClick:()=>this.switchLayer(i),
+      dockStyle:this.dockBtn(i===s.layer||(s.layer>=3&&i===eff)),
+      floatAStyle:this.floatABtn(i===eff),floatBStyle:this.floatBBtn(i===eff),floatCStyle:this.floatCBtn(i===eff)}));
+    const sections=t.sections.map(sec=>{
+      const collapsed=!!s.collapsed[sec.id];
+      const blocks=sec.blocks.map(b=>this.blockVM(b));
+      const hasPhoto=sec.blocks.some(b=>b.photos&&b.photos.some(p=>this.photoVisible(p)));
+      return {id:sec.id,title:sec.title,dates:sec.dates||'',visible:hasPhoto,
+        toggle:()=>this.setState({collapsed:Object.assign({},this.state.collapsed,{[sec.id]:!this.state.collapsed[sec.id]})}),
+        chevStyle:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'20px',height:'20px',color:'#b25c3e',fontSize:'20px',lineHeight:1,transform:collapsed?'rotate(0deg)':'rotate(90deg)',transition:'transform .25s'},
+        contentStyle:collapsed?{maxHeight:0,opacity:0,overflow:'hidden',transition:'all .35s ease'}:{maxHeight:'8000px',opacity:1,transition:'all .4s ease'},
+        blocks};
+    });
+    const jumps=t.sections.filter((sec)=>sec.blocks.some(b=>b.photos&&b.photos.some(p=>this.photoVisible(p)))).map(sec=>({id:sec.id,title:sec.title}));
+    return {trip:{title:t.title,dates:t.dates,country:c.name,intro:t.intro,jumps},layers,sections,
+      floatA:s.floating&&s.switcherStyle==='A',floatB:s.floating&&s.switcherStyle==='B',floatC:s.floating&&s.switcherStyle==='C'};
+  }
+  blockVM(b){
+    if(b.type==='text')return {id:b.id,isText:true,isHero:false,isRow:false,isMap:false,text:b.text};
+    if(b.type==='map')return {id:b.id,isText:false,isHero:false,isRow:false,isMap:true,label:b.label,note:(b.hasRoute?'frozen map \u00b7 route baked':'frozen map \u00b7 pins baked')+(b.hasHeat?' \u00b7 heatmap':'')+' to image'};
+    if(b.type==='hero'){const p=b.photos[0];const vis=this.photoVisible(p);const grp=b.photos.filter(x=>this.photoVisible(x));
+      return {id:b.id,isText:false,isHero:true,isRow:false,isMap:false,
+        wrapStyle:vis?{margin:'0 0 30px',maxHeight:'1600px',opacity:1,transition:'all .45s ease'}:{margin:0,maxHeight:0,opacity:0,overflow:'hidden',transition:'all .4s ease'},
+        photo:{label:p.label,caption:p.caption,hasCaption:p.hasCaption,visIdx:grp.indexOf(p)}};
+    }
+    if(b.type==='row'){const grp=b.photos.filter(x=>this.photoVisible(x));const anyVis=grp.length>0;
+      const cells=b.photos.map(p=>{const vis=this.photoVisible(p);return {label:p.label,visIdx:grp.indexOf(p),
+        style:vis?{flex:'1 1 0',minWidth:0,aspectRatio:'3 / 2',alignSelf:'flex-start',opacity:1,transition:'flex .5s cubic-bezier(.2,.7,.2,1),opacity .35s ease'}:{flex:'0 0 0',minWidth:0,width:0,aspectRatio:'3 / 2',alignSelf:'flex-start',opacity:0,overflow:'hidden',transition:'flex .5s cubic-bezier(.2,.7,.2,1),opacity .3s ease'}};});
+      return {id:b.id,isText:false,isHero:false,isRow:true,isMap:false,
+        wrapStyle:anyVis?{display:'flex',gap:'12px',alignItems:'flex-start',margin:'0 0 30px',maxHeight:'1600px',opacity:1,transition:'opacity .4s ease'}:{display:'flex',gap:'12px',alignItems:'flex-start',margin:0,maxHeight:0,opacity:0,overflow:'hidden',transition:'all .4s ease'},
+        cells};
+    }
+    return {id:b.id,isText:true,isHero:false,isRow:false,isMap:false,text:''};
+  }
+  lightboxVM(){
+    const lb=this.state.lightbox;if(!lb)return {lightbox:null};
+    const grp=this.visiblePhotos(lb.blockId);const p=grp[lb.index];if(!p)return {lightbox:null};
+    return {lightbox:{label:p.label,caption:p.caption,hasCaption:p.hasCaption,noCaption:!p.hasCaption,
+      counter:(lb.index+1)+' / '+grp.length,hint:'no caption \u00b7 esc to close, arrows to step',
+      frameStyle:{position:'relative',width:'min(86vw,1180px)',aspectRatio:'3/2',transform:'scale('+lb.zoom+')',transition:'transform .18s ease',cursor:lb.zoom>1?'zoom-out':'zoom-in'}}};
+  }
+
+  // ---------- STYLE HELPERS ----------
+  pinDot(){return {width:'26px',height:'26px',borderRadius:'50%',background:'#1b1916',border:'2px solid #f4f1ea',display:'grid',placeItems:'center',cursor:'pointer',transition:'transform .18s ease,background .18s ease',boxShadow:'0 3px 8px -2px rgba(0,0,0,.45)'};}
+  granStyle(active){return {border:'none',borderRadius:'18px',padding:'7px 16px',fontSize:'13px',fontWeight:active?600:500,background:active?'#1b1916':'transparent',color:active?'#f4f1ea':'#6b6358',transition:'all .2s'};}
+  dockBtn(active){return {display:'flex',alignItems:'center',gap:'8px',border:'none',borderRadius:'10px',padding:'9px 14px',background:active?'#b25c3e':'transparent',color:active?'#fff':'#3a352d',transition:'all .2s'};}
+  floatABtn(active){return {display:'grid',placeItems:'center',width:'38px',height:'38px',borderRadius:'9px',border:'none',background:active?'#b25c3e':'transparent',color:active?'#fff':'#b8b0a2',transition:'all .2s'};}
+  floatBBtn(active){return {display:'flex',flexDirection:'column',alignItems:'center',gap:'1px',width:'42px',padding:'7px 0',borderRadius:'10px',border:'none',background:active?'#b25c3e':'transparent',color:active?'#fff':'#b8b0a2',transition:'all .2s'};}
+  floatCBtn(active){return {display:'flex',alignItems:'center',gap:'7px',border:'none',borderRadius:'11px',padding:'8px 13px',background:active?'#b25c3e':'transparent',color:active?'#fff':'#cfc8bb',transition:'all .2s'};}
+  swBtn(active){return {flex:1,border:'none',borderRadius:'7px',padding:'8px 0',fontFamily:"'Spline Sans Mono',monospace",fontSize:'12px',fontWeight:600,background:active?'#1b1916':'#efeae0',color:active?'#f4f1ea':'#6b6358',transition:'all .2s'};}
+
+  renderVals(){
+    const s=this.state;
+    const isWorld=s.view==='world',isCountry=s.view==='country',isTrip=s.view==='trip';
+    const base={
+      isWorld,isCountry,isTrip,
+      goHome:()=>this.nav('world'),
+      showUp:!isWorld,
+      upLabel:isCountry?'World':(isTrip?(this.countries.find(c=>c.id===s.countryId)||{}).name:''),
+      goUp:()=>{if(isTrip)this.nav('country',s.countryId,null);else this.nav('world');},
+      unlocked:s.unlocked,locked:!s.unlocked,unlockOpen:s.unlockOpen,
+      openUnlock:this.openUnlock,closeUnlock:this.closeUnlock,doUnlock:this.doUnlock,lock:this.lock,
+      onNav:this.onNav,onPinEnter:this.onPinEnter,onPinLeave:this.onPinLeave,
+      onJump:this.onJump,onPhotoClick:this.onPhotoClick,setGran:this.setGran,
+      switcherStyle:s.switcherStyle,setSwitcherStyle:this.setSwitcherStyle,
+      ctrlOpen:s.ctrlOpen,ctrlClosed:!s.ctrlOpen,toggleCtrl:this.toggleCtrl,
+      swDesc:this.SWDESC[s.switcherStyle],
+      swAStyle:this.swBtn(s.switcherStyle==='A'),swBStyle:this.swBtn(s.switcherStyle==='B'),swCStyle:this.swBtn(s.switcherStyle==='C'),
+      lbClose:this.lbClose,lbPrev:this.lbPrev,lbNext:this.lbNext,lbStop:this.lbStop,lbToggleZoom:this.lbToggleZoom,lbWheel:this.lbWheel,
+      // defaults
+      worldPins:[],tiles:[],catSub:'',granCountriesStyle:{},granTripsStyle:{},
+      country:{name:'',sub:'',tripsLabel:''},countryPins:[],countryTiles:[],
+      trip:{title:'',dates:'',country:'',intro:'',jumps:[]},layers:[],sections:[],
+      floatA:false,floatB:false,floatC:false,lightbox:null
+    };
+    if(isWorld)Object.assign(base,this.worldVM());
+    if(isCountry)Object.assign(base,this.countryVM());
+    if(isTrip){Object.assign(base,this.tripVM());Object.assign(base,this.lightboxVM());}
+    return base;
+  }
+}
+</script>
+</body>
+</html>

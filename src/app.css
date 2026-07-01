@@ -1,0 +1,100 @@
+/* Design tokens ported verbatim from mockups/project/Travel Gallery.dc.html */
+:root {
+	/* surfaces */
+	--paper: #efeae0;
+	--paper-2: #e7e1d3;
+	--paper-3: #e9e3d6;
+	--card-line: #ddd6c6;
+	--rule: #e2dccd;
+	--panel: #fbfaf6;
+
+	/* ink + accent */
+	--ink: #1b1916;
+	--ink-soft: #3a352d;
+	--muted: #6b6358;
+	--muted-2: #8c8475;
+	--muted-3: #9a917f;
+	--faint: #b8b0a2;
+	--accent: #b25c3e; /* terracotta */
+	--accent-green: #7bbf8f;
+
+	/* type */
+	--serif: 'Spectral', Georgia, serif;
+	--sans: 'Hanken Grotesk', system-ui, sans-serif;
+	--mono: 'Spline Sans Mono', ui-monospace, monospace;
+
+	/* texture: the placeholder hatch used for un-baked images in the mockup */
+	--hatch: repeating-linear-gradient(135deg, #e1dac9 0 13px, #e9e3d5 13px 26px);
+}
+
+* {
+	box-sizing: border-box;
+}
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+body {
+	background: var(--paper);
+	font-family: var(--sans);
+	color: var(--ink);
+}
+::selection {
+	background: var(--accent);
+	color: #fff;
+}
+button {
+	font-family: inherit;
+	cursor: pointer;
+}
+a {
+	color: inherit;
+}
+
+/* shared entrance animations (mockup keyframes) */
+@keyframes tgfade {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes tgright {
+	from {
+		opacity: 0;
+		transform: translateX(14px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes tglb {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+/* catalogue tile hover (mockup .tg-tile / .tg-cover) */
+.tg-tile {
+	transition: transform 0.3s ease;
+}
+.tg-tile:hover {
+	transform: translateY(-2px);
+}
+.tg-cover {
+	transition:
+		border-color 0.3s ease,
+		box-shadow 0.3s ease;
+}
+.tg-tile:hover .tg-cover {
+	border-color: #bdb39d;
+	box-shadow: 0 10px 20px -16px rgba(40, 34, 24, 0.45);
+}
